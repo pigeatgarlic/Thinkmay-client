@@ -10,7 +10,7 @@
 #ifndef __REMOTE_APP_H__
 #define __REMOTE_APP_H__
 
-#include <remote-app-type.h>
+#include "remote-app-type.h"
 #include <error-code.h>
 #include <message-form.h>
 
