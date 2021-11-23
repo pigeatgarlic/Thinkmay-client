@@ -13,6 +13,7 @@ SOURCES += \
     remoteui.cpp
 
 HEADERS += \
+    GEventLogger.h \
     remoteui.h
 
 FORMS += \

@@ -2,6 +2,7 @@
 #define REMOTEUI_H
 
 #include <QMainWindow>
+#include <GEventLogger.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class RemoteUI; }
@@ -14,6 +15,7 @@ class RemoteUI : public QMainWindow
 public:
     RemoteUI(QWidget *parent = nullptr);
     ~RemoteUI();
+    QEventLogger* eventLogger;
 
 private:
     Ui::RemoteUI *ui;

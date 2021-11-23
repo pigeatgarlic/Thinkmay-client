@@ -146,29 +146,30 @@ int main(int argc, char* argv[])
 
 
     QApplication a(argc, argv);
-    // RemoteUI w;
-    // w.show();
+    //  RemoteUI w;
+    //  w.show();
+
     
-    QMediaPlayer* player = new QMediaPlayer;
-    QVideoWidget* vw = new QVideoWidget;
+   QMediaPlayer* player = new QMediaPlayer;
+   QVideoWidget* vw = new QVideoWidget;
 
-    player->setVideoOutput(vw);
+   player->setVideoOutput(vw);
 
-//    For dev without gst:
-        player->setMedia(QUrl("https://www.youtube.com/watch?v=Vdm6i1m4tDE&ab_channel=V%C5%A9Official"));
-// in this method, output returnDirectShowPlayerService::doRender: Unresolved error code 0x80040218 (), but it not important
-//  cause is that the application cannot decode media feed because it lacks decoding components,
-//        such as codec for this video feed is not installed/available.
+////    For dev without gst:
+       player->setMedia(QUrl("https://www.youtube.com/watch?v=Vdm6i1m4tDE&ab_channel=V%C5%A9Official"));
+//// in this method, output returnDirectShowPlayerService::doRender: Unresolved error code 0x80040218 (), but it not important
+////  cause is that the application cannot decode media feed because it lacks decoding components,
+////        such as codec for this video feed is not installed/available.
 
-//    For launch: fill your gstreamer in this url
-//    player->setMedia("gst-pipeline: videotestsrc ! qtvideosink");
+////    For launch: fill your gstreamer in this url
+////    player->setMedia("gst-pipeline: videotestsrc ! qtvideosink");
 
-    vw->setWindowTitle("ThinkMay Remote App");
+   vw->setWindowTitle("ThinkMay Remote App");
 
-    vw->setFullScreen(true);
-    vw->show();
+   vw->setFullScreen(true);
+   vw->show();
 
-    player->play();
+   player->play();
 
 
     return a.exec();
