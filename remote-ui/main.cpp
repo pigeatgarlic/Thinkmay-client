@@ -154,9 +154,18 @@ int main(int argc, char* argv[])
 
     player->setVideoOutput(vw);
 
-    player->setMedia("gst-pipeline: videotestsrc ! qtvideosink");
+//    For dev without gst:
+        player->setMedia(QUrl("https://www.youtube.com/watch?v=Vdm6i1m4tDE&ab_channel=V%C5%A9Official"));
+// in this method, output returnDirectShowPlayerService::doRender: Unresolved error code 0x80040218 (), but it not important
+//  cause is that the application cannot decode media feed because it lacks decoding components,
+//        such as codec for this video feed is not installed/available.
 
-    vw->setGeometry(100, 100, 300, 400);
+//    For launch: fill your gstreamer in this url
+//    player->setMedia("gst-pipeline: videotestsrc ! qtvideosink");
+
+    vw->setWindowTitle("ThinkMay Remote App");
+
+    vw->setFullScreen(true);
     vw->show();
 
     player->play();
