@@ -7,9 +7,11 @@
 #include <QVideoWidget>
 #include <QHBoxLayout>
 #include <QMediaPlaylist>
-//#include <QtMultimediaWidgets/QVideoWidget>
-//#include <QtMultimedia/QMediaPlayer>
-//#include <QtMultimedia/QMediaPlaylist>
+#include <glib-2.0/glib.h>
+#include <gst/gst.h>
+#include <gst/video/videooverlay.h>
+#include <QTimer>
+#include <QWidget>
 
 // #include <gst/gst.h>
 // #include <glib-2.0/glib.h>
@@ -87,6 +89,54 @@
 // }
 
 
+/* slightly convoluted way to find a working video sink that's not a bin,
+ * one could use autovideosink from gst-plugins-good instead
+ */
+//static GstElement *
+//find_video_sink (void)
+//{
+//  GstStateChangeReturn sret;
+//  GstElement *sink;
+
+//  if ((sink = gst_element_factory_make ("xvimagesink", NULL))) {
+//    sret = gst_element_set_state (sink, GST_STATE_READY);
+//    if (sret == GST_STATE_CHANGE_SUCCESS)
+//      return sink;
+
+//    gst_element_set_state (sink, GST_STATE_NULL);
+//  }
+//  gst_object_unref (sink);
+
+//  if ((sink = gst_element_factory_make ("ximagesink", NULL))) {
+//    sret = gst_element_set_state (sink, GST_STATE_READY);
+//    if (sret == GST_STATE_CHANGE_SUCCESS)
+//      return sink;
+
+//    gst_element_set_state (sink, GST_STATE_NULL);
+//  }
+//  gst_object_unref (sink);
+
+//  if (strcmp ("autovideosink", "xvimagesink") == 0 ||
+//      strcmp ("autovideosink", "ximagesink") == 0)
+//    return NULL;
+
+//  if ((sink = gst_element_factory_make ("autovideosink", NULL))) {
+//    if (GST_IS_BIN (sink)) {
+//      gst_object_unref (sink);
+//      return NULL;
+//    }
+
+//    sret = gst_element_set_state (sink, GST_STATE_READY);
+//    if (sret == GST_STATE_CHANGE_SUCCESS)
+//      return sink;
+
+//    gst_element_set_state (sink, GST_STATE_NULL);
+//  }
+//  gst_object_unref (sink);
+//  return NULL;
+//}
+
+
 int main(int argc, char* argv[])
 {
     // thinkmay_init(argv[0],19);
@@ -144,40 +194,47 @@ int main(int argc, char* argv[])
 
     // g_print("Starting connnection with session client id %d, videocodec %s , signalling server url %s\n",session_id,video_codec,signalling_url);
 
+    gst_init (&argc, &argv);
+     QApplication app(argc, argv);
+     app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit ()));
 
-    QApplication a(argc, argv);
-    //  RemoteUI w;
-    //  w.show();
+     /* prepare the pipeline */
 
-    
-   QMediaPlayer* player = new QMediaPlayer;
-   QVideoWidget* vw = new QVideoWidget;
+     GstElement *pipeline = gst_pipeline_new ("xvoverlay");
+     GstElement *src = gst_element_factory_make ("videotestsrc", NULL);
+     GstElement *sink = gst_element_factory_make ("playsink", NULL);
+     gst_bin_add_many (GST_BIN (pipeline), src, sink, NULL);
+     gst_element_link (src, sink);
 
-   player->setVideoOutput(vw);
+     if (sink == NULL)
+       g_error ("Couldn't find a working video sink.");
 
-////    For dev without gst:
-       player->setMedia(QUrl("https://www.youtube.com/watch?v=Vdm6i1m4tDE&ab_channel=V%C5%A9Official"));
-//// in this method, output returnDirectShowPlayerService::doRender: Unresolved error code 0x80040218 (), but it not important
-////  cause is that the application cannot decode media feed because it lacks decoding components,
-////        such as codec for this video feed is not installed/available.
+     /* prepare the ui */
 
-////    For launch: fill your gstreamer in this url
-////    player->setMedia("gst-pipeline: videotestsrc ! qtvideosink");
+     QWidget window;
+     window.resize(320, 240);
+     window.setWindowTitle("GstVideoOverlay Qt demo");
+     window.show();
 
-   vw->setWindowTitle("ThinkMay Remote App");
+     WId xwinid = window.winId();
+     gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (sink), xwinid);
 
-   vw->setFullScreen(true);
-   vw->show();
+     /* run the pipeline */
 
-   player->play();
+     GstStateChangeReturn sret = gst_element_set_state (pipeline,
+         GST_STATE_PLAYING);
+     if (sret == GST_STATE_CHANGE_FAILURE) {
+       gst_element_set_state (pipeline, GST_STATE_NULL);
+       gst_object_unref (pipeline);
+       /* Exit application */
+       QTimer::singleShot(0, QApplication::activeWindow(), SLOT(quit()));
+     }
 
+     int ret = app.exec();
 
-    return a.exec();
+     window.hide();
+     gst_element_set_state (pipeline, GST_STATE_NULL);
+     gst_object_unref (pipeline);
 
-    // remote_app_initialize(session_id,
-    //                 signalling_url, 
-    //                 turn, 
-    //                 audio_codec, 
-    //                 video_codec);
-    return 0;
+     return ret;
 }

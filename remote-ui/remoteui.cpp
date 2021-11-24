@@ -195,6 +195,8 @@ void QEventLogger::appendToLog(const QString & inputType, const QString & eventT
 
     // Store the amount of time that has elapsed, so there are no inconsistencies between further usages.
     elapsedTime = this->time->elapsed();
+    
+    // sendOuput string to ThinkMay Worker ${eventType}
 
     if (this->screenshotsEnabled && eventType.compare("MouseMove") != 0)
         (QPixmap::grabWidget(mainWidget).toImage()).save(screenshotDirName + "/" + QString::number(elapsedTime) + ".png", "PNG");

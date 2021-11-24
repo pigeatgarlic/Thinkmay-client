@@ -7,11 +7,10 @@
 /// 
 /// 
 /// @copyright Copyright (c) 2021
-#include <json-glib/json-glib.h>
 #include <glib-2.0/glib.h>
 
 /*session core state*/ 
-#define REMOTE_APP_INITIALIZING					"Session core initializing"
+#define REMOTE_APP_INITIALIZING                     "Session core initializing"
 #define	SESSION_INFORMATION_SETTLED					"Session information settled"
 
 #define SESSION_REGISTERED							"Session registered"
