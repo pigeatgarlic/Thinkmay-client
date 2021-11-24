@@ -1,5 +1,4 @@
-// #include "../remote-app/include/remote-app.h"
-// #include <remote-app-type.h>
+#include <remote-app-type.h>
 #include "remoteui.h"
 #include <QApplication>
 
@@ -139,66 +138,128 @@
 
 int main(int argc, char* argv[])
 {
-    // thinkmay_init(argv[0],19);
 
-    // GOptionContext *context;
-    // GError *error = NULL;
+   gst_init (&argc, &argv);
+   QApplication app(argc, argv);
+   app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit ())); //get window close
 
-    // context = g_option_context_new ("- thinkmay gstreamer client");
-    // g_option_context_add_main_entries (context, entries, NULL);
-    // g_option_context_add_group (context, gst_init_get_option_group ());
-    // if (!g_option_context_parse (context, &argc, &argv, &error)) {
-    //     g_printerr ("Error initializing: %s\n", error->message);
-    //     return -1;
-    // }
+   // prepare the pipeline
 
-    // if(argc == 2)
-    // {
-    //     gchar** array = split(argv[1],'/');
-
-    //     if(g_strcmp0(array[0],"thinkmay:"))
-    //     {
-    //         g_print("%s :",array[0]);
-    //         g_printerr("wrong uri, remote app exiting");
-    //         return;
-    //     }
+   GstElement *pipeline = gst_pipeline_new ("xvoverlay");
+   GstElement *src = gst_element_factory_make ("videotestsrc", NULL);
+   GstElement *sink = gst_element_factory_make ("xvimagesink", NULL);
 
 
-    //     gchar** array_param = split(array[2],'.');
-    //     do
-    //     {
-    //         if(*(array_param))
-    //         {
-    //             gchar** parameter = split(*(array_param),'=');
-    //             if(!g_strcmp0(*(parameter ),"sessionid"))
-    //             {
-    //                 gint id = strtol(*(parameter +1),NULL,10);
-    //                 session_id = id;
-    //             }
-    //             else if(!g_strcmp0(*(parameter ),"signalling"))
-    //             {
-    //                 memcpy(signalling_url,*(parameter +1),strlen(*(parameter +1)));
-    //             }
-    //             else if(!g_strcmp0(*(parameter ),"turn"))
-    //             {
-    //                 memcpy(turn,*(parameter +1),strlen(*(parameter +1)));
-    //             }
-    //             else if(!g_strcmp0(*(parameter ),"videocodec"))
-    //             {
-    //                 memcpy(video_codec,*(parameter +1),strlen(*(parameter +1)));
-    //             }
-    //         }
-    //     }
-    //     while(*(array_param++));
-    // }
 
-    // g_print("Starting connnection with session client id %d, videocodec %s , signalling server url %s\n",session_id,video_codec,signalling_url);
+   gst_bin_add_many (GST_BIN (pipeline), src, sink, NULL);
+   gst_element_link (src, sink);
+
+
+
+   //////////////////////////////
+
+   // prepare the ui
+
+   QWidget window;
+   window.resize(320, 240);
+   window.show();
+
+   WId xwinid = window.winId(); // get window id
+
+
+   //////////////////////////////////////////////////////////////////////////////
+   gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (sink), xwinid);
+   //////////////////////////////////////////////////////////////////////////////
+
+
+   // run the pipeline
+
+   GstStateChangeReturn sret = gst_element_set_state (pipeline,
+       GST_STATE_PLAYING);
+   if (sret == GST_STATE_CHANGE_FAILURE) {
+     gst_element_set_state (pipeline, GST_STATE_NULL);
+     gst_object_unref (pipeline);
+     // Exit application
+     QTimer::singleShot(0, QApplication::activeWindow(), SLOT(quit()));
+   }
+
+   int ret = app.exec();
+
+   window.hide();
+   gst_element_set_state (pipeline, GST_STATE_NULL);
+   gst_object_unref (pipeline);
+
+   return ret;
+   ///////////////////////////////////////////////////////////////////
+
+
+
+    thinkmay_init(argv[0],19);
+
+    GOptionContext *context;
+    GError *error = NULL;
+
+    context = g_option_context_new ("- thinkmay gstreamer client");
+    g_option_context_add_main_entries (context, entries, NULL);
+    g_option_context_add_group (context, gst_init_get_option_group ());
+    if (!g_option_context_parse (context, &argc, &argv, &error)) {
+        g_printerr ("Error initializing: %s\n", error->message);
+        return -1;
+    }
+
+    if(argc == 2)
+    {
+        gchar** array = split(argv[1],'/');
+
+        if(g_strcmp0(array[0],"thinkmay:"))
+        {
+            g_print("%s :",array[0]);
+            g_printerr("wrong uri, remote app exiting");
+            return;
+        }
+
+
+        gchar** array_param = split(array[2],'.');
+        do
+        {
+            if(*(array_param))
+            {
+                gchar** parameter = split(*(array_param),'=');
+                if(!g_strcmp0(*(parameter ),"sessionid"))
+                {
+                    gint id = strtol(*(parameter +1),NULL,10);
+                    session_id = id;
+                }
+                else if(!g_strcmp0(*(parameter ),"signalling"))
+                {
+                    memcpy(signalling_url,*(parameter +1),strlen(*(parameter +1)));
+                }
+                else if(!g_strcmp0(*(parameter ),"turn"))
+                {
+                    memcpy(turn,*(parameter +1),strlen(*(parameter +1)));
+                }
+                else if(!g_strcmp0(*(parameter ),"videocodec"))
+                {
+                    memcpy(video_codec,*(parameter +1),strlen(*(parameter +1)));
+                }
+            }
+        }
+        while(*(array_param++));
+    }
+
+    g_print("Starting connnection with session client id %d, videocodec %s , signalling server url %s\n",session_id,video_codec,signalling_url);
 
     gst_init (&argc, &argv);
      QApplication app(argc, argv);
      app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit ()));
 
+<<<<<<< HEAD
      /* prepare the pipeline */
+=======
+    QApplication a(argc, argv);
+     RemoteUI w;
+     w.show();
+>>>>>>> 64118f2781fb94383e30cddf8e6ecaac9a290be2
 
      GstElement *pipeline = gst_pipeline_new ("xvoverlay");
      GstElement *src = gst_element_factory_make ("videotestsrc", NULL);
@@ -209,12 +270,15 @@ int main(int argc, char* argv[])
      if (sink == NULL)
        g_error ("Couldn't find a working video sink.");
 
+<<<<<<< HEAD
      /* prepare the ui */
 
      QWidget window;
      window.resize(320, 240);
      window.setWindowTitle("GstVideoOverlay Qt demo");
      window.show();
+=======
+>>>>>>> 64118f2781fb94383e30cddf8e6ecaac9a290be2
 
      WId xwinid = window.winId();
      gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (sink), xwinid);
@@ -236,5 +300,14 @@ int main(int argc, char* argv[])
      gst_element_set_state (pipeline, GST_STATE_NULL);
      gst_object_unref (pipeline);
 
+<<<<<<< HEAD
      return ret;
+=======
+    remote_app_initialize(session_id,
+                    signalling_url, 
+                    turn, 
+                    audio_codec, 
+                    video_codec);
+    return 0;
+>>>>>>> 64118f2781fb94383e30cddf8e6ecaac9a290be2
 }
