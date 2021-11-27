@@ -22,16 +22,23 @@
 #include "config.h"
 #endif
 
+
 #include <stdio.h>
 #include <gst/gst.h>
 #include <gst/video/videooverlay.h>
 #include <gst/video/gstvideosink.h>
 #include <windows.h>
+#include <glib-2.0/glib.h>
 #include <string.h>
 #include <json-glib/json-glib.h>
 #include <human-interface-opcode.h>
 #include <message-form.h>
-#include <xinput.h>
+
+#pragma comment(lib, "XInput.lib") 
+#include <windows.h>
+#include <Xinput.h>
+
+
 XINPUT_STATE state;
 static GMainLoop *loop = NULL;
 static GMainLoop *pipeline_loop = NULL;
@@ -564,6 +571,65 @@ win32_kb_thread(gpointer user_data)
   return NULL;
 }
 
+
+
+gpointer
+gamepad_thread_func(gpointer data)
+{
+  DWORD dwResult;
+
+  XINPUT_STATE state, prevstate;
+  SecureZeroMemory(&state, sizeof(XINPUT_STATE));
+  SecureZeroMemory(&prevstate, sizeof(XINPUT_STATE));
+  dwResult = XInputGetState(0, &prevstate);
+
+  DWORD wButtonPressing = 0;
+  DWORD Lstick = 64;
+
+  //key down R key and key up R key
+  INPUT inputs[3];
+  ZeroMemory(inputs, sizeof(inputs));
+  //key down
+  inputs[0].type = INPUT_KEYBOARD;
+  inputs[0].ki.wVk = 0x52;
+
+  //key up (same as inputs[0] object but with extra attr)r
+  inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+
+  if (dwResult == ERROR_SUCCESS)
+  {
+      // Controller is connected
+      while (XInputGetState(0, &state) == ERROR_SUCCESS) {
+          //dwpacketnumber diff?
+          if (state.dwPacketNumber != prevstate.dwPacketNumber) {
+              //different input
+              wButtonPressing = state.Gamepad.wButtons;
+          }
+          if (wButtonPressing & Lstick) {
+              //std::cout << "hold" << std::endl;
+              XINPUT_VIBRATION vibration;
+              vibration.wLeftMotorSpeed = 65535;
+              vibration.wRightMotorSpeed = 65535;
+              XInputSetState(0,&vibration);
+              SendInput(1, &inputs[0], sizeof(INPUT));
+          }
+          if (prevstate.Gamepad.wButtons & Lstick
+              && (wButtonPressing & Lstick) == 0) {
+              //relese
+              //std::cout << "release" << std::endl;
+              SendInput(1, &inputs[1], sizeof(INPUT));
+          }
+          MoveMemory(&prevstate, &state, sizeof(XINPUT_STATE));
+
+          Sleep(10);
+      }
+      //std::cout << state.Gamepad.wButtons << std::endl;
+  }
+}
+
+
+
+
 /////////////////////////////////////////////
 gint main(gint argc, gchar **argv)
 {
@@ -606,6 +672,10 @@ gint main(gint argc, gchar **argv)
   }
   ////////////////////////////////////////////////////////////////////////////
   // END get input option
+
+
+  GThread* game_pad_thread = g_thread_new("gamepad thread",gamepad_thread_func,NULL);
+
 
   /* prepare window */
   ///////////////////////////////////
