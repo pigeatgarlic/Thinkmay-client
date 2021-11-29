@@ -49,7 +49,6 @@ static gchar *video_sink = NULL;
 static GstElement *sink = NULL;
 static gboolean run_thread = FALSE;
 
-
 static gint x = 0;
 static gint y = 0;
 static gint width = 1920;
@@ -74,64 +73,15 @@ static Win32KeyHandler *win32_key_handler = NULL;
 static LRESULT CALLBACK
 window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-  XInputGetState(0, &state);
-  if ((state.Gamepad.wButtons & XINPUT_GAMEPAD_A) != 0)
+  if (message == WM_DESTROY)
   {
-    int eqew = 1;
-  }
-  switch (message)
-  {
-  case WM_DESTROY:
     if (loop)
       g_main_loop_quit(loop);
     if (pipeline_loop)
       g_main_loop_quit(pipeline_loop);
-    return 0;   
-    break;
-  case WM_CHAR:
-    if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46))
-    {
-      switch_fullscreen_mode(hwnd);
-    }
-    if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50))
-    {
-      // hidden mouse setting func
-    }
-    break;
-  case WM_MOUSEWHEEL:
-    if (GET_WHEEL_DELTA_WPARAM(wParam) < 0)
-    {
-      // negative indicates a rotation towards the user (down)
-    }
-    else if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
-    {
-      // a positive indicate the wheel is rotated away from the user (up)
-    }
-    break;
-  case WM_LBUTTONDOWN:
-    break;
-  case WM_LBUTTONUP:
-    break;
-  case WM_RBUTTONDOWN:
-    break;
-  case WM_RBUTTONUP:
-    break;
-  case WM_MBUTTONDOWN:
-    break;
-  case WM_MBUTTONUP: // awaiting for test
-    break;
-    /*
-      - Use the following code to obtain the information in the wParam parameter.
-        int xPos = LOWORD(lParam);
-        int yPos = HIWORD(lParam);
-        zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-        fwKeys = GET_KEYSTATE_WPARAM(wParam);
-    */
-  default:
-    // SetCapture(hWnd);
-    if (message != 127)
-      printf("%d \n", message);
-    break;
+    return 0;
+  } else {
+    handle_message_window_proc(hWnd, message, wParam, lParam);
   }
 
   return DefWindowProc(hWnd, message, wParam, lParam);

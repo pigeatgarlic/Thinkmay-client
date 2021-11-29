@@ -83,49 +83,6 @@ gpointer gamepad_thread_func(gpointer data)
   }
 }
 
-////////////////////////////////////
-// get debug infor from the gstreamer pipeline
-gboolean
-bus_msg(GstBus *bus, GstMessage *msg, gpointer user_data, HWND hwnd, gboolean visible, gboolean test_reuse, GMainLoop *loop)
-{
-  GstElement *pipeline = GST_ELEMENT(user_data);
-  switch (GST_MESSAGE_TYPE(msg))
-  {
-  case GST_MESSAGE_ASYNC_DONE:
-    /* make window visible when we have something to show */
-    if (!visible && hwnd)
-    {
-      ShowWindow(hwnd, SW_SHOW);
-      visible = TRUE;
-    }
-
-    gst_element_set_state(pipeline, GST_STATE_PLAYING);
-    break;
-  case GST_MESSAGE_ERROR:
-  {
-    GError *err;
-    gchar *dbg;
-
-    gst_message_parse_error(msg, &err, &dbg);
-    g_printerr("ERROR %s \n", err->message);
-    if (dbg != NULL)
-      g_printerr("ERROR debug information: %s\n", dbg);
-    g_clear_error(&err);
-    g_free(dbg);
-    test_reuse = FALSE;
-
-    g_main_loop_quit(loop);
-    break;
-  }
-  default:
-    break;
-  }
-
-  return TRUE;
-}
-
-//////////////////////////////////////////
-
 ///////////////////////////////////////////////////////////////////////////
 void switch_fullscreen_mode(HWND *hwnd)
 {
@@ -215,7 +172,7 @@ get_monitor_size(RECT *rect, HWND *hwnd)
 }
 ////////////////////////////////////////////////////////////////////////
 
-HWND set_up_window(WNDCLASSEX wc, gchar *title,  HINSTANCE hinstance )
+HWND set_up_window(WNDCLASSEX wc, gchar *title, HINSTANCE hinstance)
 {
   return CreateWindowEx(0, wc.lpszClassName,
                         title,
@@ -223,4 +180,54 @@ HWND set_up_window(WNDCLASSEX wc, gchar *title,  HINSTANCE hinstance )
                         CW_USEDEFAULT, CW_USEDEFAULT,
                         wr.right - wr.left, wr.bottom - wr.top, (HWND)NULL, (HMENU)NULL,
                         hinstance, NULL);
+}
+
+void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+  switch (message)
+  {
+
+  case WM_CHAR:
+    if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46))
+    {
+      switch_fullscreen_mode(hwnd);
+    }
+    if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50))
+    {
+      // hidden mouse setting func
+    }
+    break;
+  case WM_MOUSEWHEEL:
+    if (GET_WHEEL_DELTA_WPARAM(wParam) < 0)
+    {
+      // negative indicates a rotation towards the user (down)
+    }
+    else if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+    {
+      // a positive indicate the wheel is rotated away from the user (up)
+    }
+    break;
+  case WM_LBUTTONDOWN:
+    break;
+  case WM_LBUTTONUP:
+    break;
+  case WM_RBUTTONDOWN:
+    break;
+  case WM_RBUTTONUP:
+    break;
+  case WM_MBUTTONDOWN:
+    break;
+  case WM_MBUTTONUP: // awaiting for test
+    break;
+    /*
+      - Use the following code to obtain the information in the wParam parameter.
+        int xPos = LOWORD(lParam);
+        int yPos = HIWORD(lParam);
+        zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+        fwKeys = GET_KEYSTATE_WPARAM(wParam);
+    */
+  default:
+    // SetCapture(hWnd);
+    break;
+  }
 }
