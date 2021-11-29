@@ -4,7 +4,6 @@
 #include <remote-app.h>
 
 #include <module-code.h>
-#include <opcode.h>
 
 #include <glib.h>
 #include <glib-object.h>
@@ -15,7 +14,6 @@
 
 
 #include <stdio.h>
-#include <general-constant.h>
 #include <module-code.h>
 
 
@@ -46,7 +44,7 @@ remote_app_on_message(RemoteApp* core,
 
 	gint		from =		json_object_get_int_member(object, "From");
 	gint 	to =			json_object_get_int_member(object, "To");
-	Opcode     opcode =		json_object_get_int_member(object, "Opcode");
+	gint     opcode =		json_object_get_int_member(object, "Opcode");
 	gchar* data_string =	json_object_get_string_member(object, "Data");
 	g_object_unref(parser);
 }

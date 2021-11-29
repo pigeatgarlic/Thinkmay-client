@@ -6,7 +6,7 @@
 Message*
 message_init(Module from,
 			Module to,
-			Opcode opcode,
+			gint opcode,
 			Message* data)
 {
 	Message* object = json_object_new();
@@ -23,7 +23,7 @@ message_init(Module from,
 Message*
 empty_message_init(Module from,
 			       Module to,
-			       Opcode opcode)
+			       gint opcode)
 {
 	Message* object = json_object_new();
 

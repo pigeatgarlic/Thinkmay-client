@@ -2,7 +2,6 @@
 #include <remote-app.h>
 
 #include <module-code.h>
-#include <opcode.h>
 #include <message-form.h>
 
 

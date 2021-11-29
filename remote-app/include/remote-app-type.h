@@ -7,6 +7,8 @@
 /// 
 /// 
 /// @copyright Copyright (c) 2021
+#ifndef __REMOTE_APP_TYPE_H__
+#define __REMOTE_APP_TYPE_H__
 #include <glib-2.0/glib.h>
 
 /*session core state*/ 
@@ -62,14 +64,18 @@
 
 
 
-
+typedef void            (*HandleIntputFunction)           (gint device);
 
 
 /// <summary>
 /// Pipeline is a struct contain all GstElement neccessary for
 /// session core to encode video and audio
 /// </summary> 
-typedef struct 			_Pipeline 				                Pipeline;
+typedef struct 			_Pipeline 				            Pipeline;
+
+
+typedef struct 			_GUI 				                GUI;
+
 
 /// <summary>
 /// Session core is a struct represent for session core module
@@ -120,5 +126,5 @@ typedef					gchar*					                SignallingServerState;
 typedef					gchar*					                PeerCallState;
 
 
-
+#endif
 

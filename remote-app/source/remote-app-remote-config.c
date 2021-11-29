@@ -11,7 +11,6 @@
 #include <remote-app-type.h>
 #include <remote-app-pipeline.h>
 
-#include <opcode.h>
 #include <qoe.h>
 
 #include <gst/gst.h>

@@ -10,6 +10,14 @@
 #include <message-form.h>
 
 
+#ifdef G_OS_WIN32
+#define WIN32_HID_CAPTURE
+
+#else
+
+
+#endif
+
 
 
 struct _HidInput
@@ -23,7 +31,17 @@ struct _HidInput
     gint button_code;
     gchar* keyboard_code;
 
-    HidOpcode* opcode;
+    HidOpcode opcode;
+
+
+
+
+    HandleIntputFunction function;
+
+
+
+
+
 
     JsonObject* json;
 };
@@ -37,6 +55,8 @@ send_mouse_move_signal(HidInput* input,
     json_object_set_int_member(object,"dX",(gint)input->x_pos);
     json_object_set_int_member(object,"dY",(gint)input->y_pos);
     hid_data_channel_send(get_string_from_json_object(object),core);
+
+    input->function(input->delta_y);
 }
 
 static void
@@ -61,6 +81,9 @@ send_key_event(HidInput* input,
     json_object_set_string_member(object,"wVk",input->keyboard_code);
     hid_data_channel_send(get_string_from_json_object(object),core);
 }
+
+
+#ifndef WIN32_HID_CAPTURE
 
 static void
 parse_hid_event(HidInput* input, 
@@ -112,10 +135,10 @@ handle_navigator(GstEvent *event,
             gst_navigation_event_parse_mouse_move_event(event,&(navigation->x_pos),&(navigation->y_pos));
             navigation->opcode = MOUSE_MOVE;
             break; 
-        // case GST_NAVIGATION_EVENT_MOUSE_SCROLL: 
-        //     gst_navigation_event_parse_mouse_scroll_event(event,&(navigation->x_pos),&(navigation->y_pos),&(navigation->delta_x),&(navigation->delta_y));
-        //     navigation->opcode = MOUSE_WHEEL;
-        //     break; 
+        case GST_NAVIGATION_EVENT_MOUSE_SCROLL: 
+            gst_navigation_event_parse_mouse_scroll_event(event,&(navigation->x_pos),&(navigation->y_pos),&(navigation->delta_x),&(navigation->delta_y));
+            navigation->opcode = MOUSE_WHEEL;
+            break; 
         case GST_NAVIGATION_EVENT_MOUSE_BUTTON_PRESS: 
             gst_navigation_event_parse_mouse_button_event(event,&(navigation->button_code),&(navigation->x_pos),&(navigation->y_pos));
             navigation->opcode = MOUSE_DOWN;
@@ -130,3 +153,12 @@ handle_navigator(GstEvent *event,
     parse_hid_event(navigation,core);
     free(navigation);
 }
+#else
+
+
+
+
+
+
+
+#endif

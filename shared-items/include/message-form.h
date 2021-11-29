@@ -4,7 +4,6 @@
 #include <glib.h>
 #include <json-glib/json-glib.h>
 
-#include <opcode.h>
 #include <module-code.h>
 
 typedef 		    JsonObject				Message;
@@ -21,7 +20,7 @@ typedef 		    JsonObject				Message;
 /// <returns></returns>
 Message*            message_init                (Module from,
                                                  Module to,
-                                                 Opcode opcode,
+                                                 gint opcode,
                                                  Message* data);
 
 /// <summary>
@@ -50,7 +49,7 @@ Message*            get_json_object_from_string(gchar* string,
 /// <returns></returns>
 Message*            empty_message_init          (Module from,
 			                                    Module to,
-			                                    Opcode opcode);
+			                                    gint opcode);
 
 
 Message*            get_json_object_from_file   (gchar* file_name,

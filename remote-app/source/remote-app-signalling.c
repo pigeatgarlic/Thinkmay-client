@@ -8,7 +8,6 @@
 #include <exit-code.h>
 #include <error-code.h>
 #include <signalling-message.h>
-#include <general-constant.h>
 
 #include <gst/gst.h>
 #include <glib-2.0/glib.h>

@@ -9,8 +9,6 @@
 #include <exit-code.h>
 #include <error-code.h>
 #include <module-code.h>
-#include <opcode.h>
-#include <general-constant.h>
 
 
 #include <glib.h>

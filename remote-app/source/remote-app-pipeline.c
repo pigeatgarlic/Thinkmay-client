@@ -6,7 +6,6 @@
 #include <remote-app-pipeline.h>
 #include <remote-app-input.h>
 
-#include <general-constant.h>
 #include <logging.h>
 #include <qoe.h>
 #include <exit-code.h>
@@ -291,7 +290,11 @@ setup_video_sink_navigator(RemoteApp* core)
 {
     Pipeline* pipeline = remote_app_get_pipeline(core);
     GstPad* pad = gst_element_get_static_pad(pipeline->video_element[VIDEO_CONVERT],"src");
+
+#ifndef G_OS_WIN32
     gst_pad_set_event_function_full(pad,handle_event,core,NULL);
+
+#endif
 }
 
  
