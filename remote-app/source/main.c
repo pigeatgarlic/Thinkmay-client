@@ -529,8 +529,8 @@ gint main(gint argc, gchar **argv)
   ///////////////// select sink element
 
   title = g_strdup_printf("%s - Win32-VideoOverlay", video_sink);
-  AdjustWindows();
-  hwnd = SetUpWindows(wc, title, hinstance);
+  adjust_window();
+  hwnd = set_up_window(wc, title, hinstance);
   ////////////////////////////////////////////////////////// setup window (resolution etc etc )
 
   ////////////////////////////////////////// create gmain loop

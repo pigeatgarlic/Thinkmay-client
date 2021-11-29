@@ -25,7 +25,7 @@ _keydown(int *key)
 
 RECT wr = {0, 0, 1920, 1080};
 
-void AdjustWindows()
+void adjust_window()
 {
   AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
 }
@@ -215,7 +215,7 @@ get_monitor_size(RECT *rect, HWND *hwnd)
 }
 ////////////////////////////////////////////////////////////////////////
 
-HWND SetUpWindows(WNDCLASSEX wc, gchar *title,  HINSTANCE hinstance )
+HWND set_up_window(WNDCLASSEX wc, gchar *title,  HINSTANCE hinstance )
 {
   return CreateWindowEx(0, wc.lpszClassName,
                         title,
