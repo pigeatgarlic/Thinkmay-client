@@ -5,7 +5,6 @@ struct _GUI
 {
   RemoteApp *app;
 };
-
 static GUI gui_declare;
 static gboolean fullscreen = FALSE;
 static LONG prev_style = 0;
@@ -143,8 +142,6 @@ void switch_fullscreen_mode(HWND *hwnd)
     /* Restore the window's attributes and size */
     SetWindowLong(hwnd, GWL_STYLE, prev_style);
 
-
-
     SetWindowPos(hwnd, HWND_NOTOPMOST,
                  prev_rect.left,
                  prev_rect.top,
@@ -174,9 +171,9 @@ void switch_fullscreen_mode(HWND *hwnd)
     }
 
     /* Make the window borderless so that the client area can fill the screen */
-    long _pre_style = prev_style;
+    _prev_style = prev_style;
     SetWindowLong(hwnd, GWL_STYLE,
-                  _pre_style &
+                  _prev_style &
                       ~(WS_CAPTION | WS_MAXIMIZEBOX | WS_MINIMIZEBOX | WS_SYSMENU |
                         WS_THICKFRAME));
     prev_style = _prev_style;
@@ -217,3 +214,13 @@ get_monitor_size(RECT *rect, HWND *hwnd)
   return TRUE;
 }
 ////////////////////////////////////////////////////////////////////////
+
+HWND SetUpWindows(WNDCLASSEX wc, gchar *title,  HINSTANCE hinstance )
+{
+  return CreateWindowEx(0, wc.lpszClassName,
+                        title,
+                        WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_OVERLAPPEDWINDOW,
+                        CW_USEDEFAULT, CW_USEDEFAULT,
+                        wr.right - wr.left, wr.bottom - wr.top, (HWND)NULL, (HMENU)NULL,
+                        hinstance, NULL);
+}

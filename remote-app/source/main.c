@@ -86,7 +86,7 @@ window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
       g_main_loop_quit(loop);
     if (pipeline_loop)
       g_main_loop_quit(pipeline_loop);
-    return 0;
+    return 0;   
     break;
   case WM_CHAR:
     if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46))
@@ -97,6 +97,7 @@ window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
       // hidden mouse setting func
     }
+    break;
   case WM_MOUSEWHEEL:
     if (GET_WHEEL_DELTA_WPARAM(wParam) < 0)
     {
@@ -529,12 +530,7 @@ gint main(gint argc, gchar **argv)
 
   title = g_strdup_printf("%s - Win32-VideoOverlay", video_sink);
   AdjustWindows();
-  hwnd = CreateWindowEx(0, wc.lpszClassName,
-                        title,
-                        WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_OVERLAPPEDWINDOW,
-                        CW_USEDEFAULT, CW_USEDEFAULT,
-                        wr.right - wr.left, wr.bottom - wr.top, (HWND)NULL, (HMENU)NULL,
-                        hinstance, NULL);
+  hwnd = SetUpWindows(wc, title, hinstance);
   ////////////////////////////////////////////////////////// setup window (resolution etc etc )
 
   ////////////////////////////////////////// create gmain loop

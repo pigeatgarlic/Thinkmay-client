@@ -11,3 +11,4 @@ gpointer gamepad_thread_func(gpointer data);
 gboolean _keydown(int *key);
 gboolean bus_msg(GstBus *bus, GstMessage *msg, gpointer user_data);
 void switch_fullscreen_mode(HWND hwnd);
+HWND SetUpWindows(WNDCLASSEX wc, gchar *title,  HINSTANCE hinstance);
