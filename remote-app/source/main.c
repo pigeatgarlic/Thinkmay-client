@@ -433,6 +433,7 @@ gint main(gint argc, gchar **argv)
   gint exitcode = 0;
   gboolean ret;
   GThread *thread = NULL;
+
   GOptionEntry options[] = {
       {"videosink", 0, 0, G_OPTION_ARG_STRING, &video_sink,
        "Video sink to use (default is glimagesink)", NULL},
@@ -451,7 +452,6 @@ gint main(gint argc, gchar **argv)
   g_option_context_add_group(option_ctx, gst_init_get_option_group());
   ret = g_option_context_parse(option_ctx, &argc, &argv, &error);
   g_option_context_free(option_ctx);
-
   if (!ret)
   {
     g_printerr("option parsing failed: %s\n", error->message);
@@ -475,7 +475,7 @@ gint main(gint argc, gchar **argv)
   //////////////////////////////////////
 
   if (!video_sink)
-    video_sink = g_strdup(DEFAULT_VIDEO_SINK);
+    video_sink = select_sink_element();
   ///////////////// select sink element
 
   title = g_strdup_printf("%s - Win32-VideoOverlay", video_sink);

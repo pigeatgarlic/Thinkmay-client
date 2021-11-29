@@ -11,6 +11,8 @@ static LONG prev_style = 0;
 static RECT prev_rect = {
     0,
 };
+#define DEFAULT_VIDEO_SINK "d3d11videosink"
+RECT wr = {0, 0, 1920, 1080};
 
 void init_remote_app_gui(RemoteApp *app)
 {
@@ -23,7 +25,6 @@ _keydown(int *key)
   return (GetAsyncKeyState(key) & 0x8000) != 0;
 }
 
-RECT wr = {0, 0, 1920, 1080};
 
 void adjust_window()
 {
@@ -230,4 +231,8 @@ void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
     // SetCapture(hWnd);
     break;
   }
+}
+gchar* select_sink_element()
+{
+  return g_strdup(DEFAULT_VIDEO_SINK);
 }
