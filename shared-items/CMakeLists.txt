@@ -14,7 +14,7 @@ file(GLOB SOURCE_LIST
 ${CMAKE_SOURCE_DIR}/shared-items/source/*.c
 )
 
-add_library(shared-items ${SOURCE_LIST})
+add_library(shared-items SHARED ${SOURCE_LIST})
 
 
 
