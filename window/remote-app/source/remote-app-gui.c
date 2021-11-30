@@ -1,24 +1,58 @@
+
+/// <summary>
+/// @file remote-app-gui.c
+/// @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
+/// </summary>
+/// @version 1.0
+/// @date 2021-11-30
+/// 
+/// @copyright Copyright (c) 2021
+/// 
+
 #include <remote-app-gui.h>
 #include <remote-app-type.h>
 #include <remote-app.h>
+
+#include <glib.h>
+
+
+
+
 struct _GUI
 {
   RemoteApp *app;
+#ifdef G_OS_WIN32
+  HWND window;
+#endif
+  gboolean fullscreen;
+  LONG prev_style;
+  RECT prev_rect;
+  RECT wr;
 };
-static GUI gui_declare;
-static gboolean fullscreen = FALSE;
-static LONG prev_style = 0;
-static RECT prev_rect = {
-    0,
-};
-#define DEFAULT_VIDEO_SINK "d3d11videosink"
-RECT wr = {0, 0, 1920, 1080};
 
-void init_remote_app_gui(RemoteApp *app)
+static GUI _gui;
+
+
+
+
+
+GUI*
+init_remote_app_gui(RemoteApp *app)
 {
-  gui_declare.app = app;
+  _gui.app = app;
+  _gui.wr.bottom = 1080;
+  _gui.wr.top = 0;
+  _gui.wr.left = 0;
+  _gui.wr.right = 1920;
+
+  return &_gui;
 }
 
+/// <summary>
+/// detect if a key is pressed
+/// </summary>
+/// <param name="key"></param>
+/// <returns></returns>
 gboolean
 _keydown(int *key)
 {
@@ -26,63 +60,12 @@ _keydown(int *key)
 }
 
 
-void adjust_window()
+void 
+adjust_window(GUI* gui)
 {
-  AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+  AdjustWindowRect(&(gui->wr), WS_OVERLAPPEDWINDOW, FALSE);
 }
 
-gpointer gamepad_thread_func(gpointer data)
-{
-  DWORD dwResult;
-
-  XINPUT_STATE state, prevstate;
-  SecureZeroMemory(&state, sizeof(XINPUT_STATE));
-  SecureZeroMemory(&prevstate, sizeof(XINPUT_STATE));
-  dwResult = XInputGetState(0, &prevstate);
-
-  DWORD wButtonPressing = 0;
-  DWORD Lstick = 64;
-
-  //key down R key and key up R key
-  INPUT inputs[3];
-  ZeroMemory(inputs, sizeof(inputs));
-  //key down
-  inputs[0].type = INPUT_KEYBOARD;
-  inputs[0].ki.wVk = 0x52;
-
-  //key up (same as inputs[0] object but with extra attr)r
-  inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
-
-  if (dwResult == ERROR_SUCCESS)
-  {
-    // Controller is connected
-    while (XInputGetState(0, &state) == ERROR_SUCCESS)
-    {
-      //dwpacketnumber diff?
-      if (state.dwPacketNumber != prevstate.dwPacketNumber)
-      {
-        //different input
-        wButtonPressing = state.Gamepad.wButtons;
-      }
-      if (wButtonPressing & Lstick)
-      {
-        //std::cout << "hold" << std::endl;
-        XINPUT_VIBRATION vibration;
-        vibration.wLeftMotorSpeed = 65535;
-        vibration.wRightMotorSpeed = 65535;
-        XInputSetState(0, &vibration);
-        SendInput(1, &inputs[0], sizeof(INPUT));
-      }
-      if (prevstate.Gamepad.wButtons & Lstick && (wButtonPressing & Lstick) == 0)
-      {
-        SendInput(1, &inputs[1], sizeof(INPUT));
-      }
-      MoveMemory(&prevstate, &state, sizeof(XINPUT_STATE));
-
-      Sleep(10);
-    }
-  }
-}
 
 ///////////////////////////////////////////////////////////////////////////
 void switch_fullscreen_mode(HWND *hwnd)
@@ -220,19 +203,40 @@ void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
     break;
   case WM_MBUTTONUP: // awaiting for test
     break;
-    /*
-      - Use the following code to obtain the information in the wParam parameter.
-        int xPos = LOWORD(lParam);
-        int yPos = HIWORD(lParam);
-        zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-        fwKeys = GET_KEYSTATE_WPARAM(wParam);
-    */
   default:
     // SetCapture(hWnd);
     break;
   }
 }
-gchar* select_sink_element()
+
+
+
+void
+remote_app_redirect_gui(RemoteApp* app, GstElement* sink)
 {
-  return g_strdup(DEFAULT_VIDEO_SINK);
+  GUI* gui = remote_app_get_gui(app);
+  adjust_window();
+  gui->window = set_up_window(wc, title, hinstance);
+  gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(sink),(guintptr)gui->window);
 }
+///////////////////////////////////////////////////////////////////////
+/// get monitor size of entire screen instead of only the window
+
+static LRESULT CALLBACK
+window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+  if (message == WM_DESTROY)
+  {
+    if (loop)
+      g_main_loop_quit(loop);
+    if (pipeline_loop)
+      g_main_loop_quit(pipeline_loop);
+    return 0;
+  } else {
+    handle_message_window_proc(hWnd, message, wParam, lParam);
+  }
+
+  return DefWindowProc(hWnd, message, wParam, lParam);
+}
+
+/////  ---------------------------------------------->>>>

@@ -144,6 +144,30 @@ remote_app_finalize(RemoteApp* self,
 					  GError* error)
 {
 	g_print(error->message);
+  if (hwnd)
+    DestroyWindow(hwnd);
+
+
+  if (win32_key_handler)
+  {
+    g_mutex_lock(&win32_key_handler->lock);
+    win32_key_handler->closing = TRUE;
+    g_mutex_unlock(&win32_key_handler->lock);
+
+    SetEvent(win32_key_handler->event_handle);
+    g_thread_join(win32_key_handler->thread);
+    CloseHandle(win32_key_handler->event_handle);
+
+    g_mutex_clear(&win32_key_handler->lock);
+    g_free(win32_key_handler);
+  }
+  gst_clear_object(&sink);
+  g_io_channel_unref(msg_io_channel);
+  g_main_loop_unref(loop);
+  g_free(title);
+  g_free(video_sink);
+
+  return exitcode;
 	ExitProcess(exit_code);
 }
 
