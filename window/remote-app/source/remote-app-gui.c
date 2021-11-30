@@ -188,7 +188,6 @@ HWND set_up_window(WNDCLASSEX wc, gchar *title, HINSTANCE hinstance)
 
 void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, GstElement *sink)
 {
-
   if (_keydown(0x11) && _keydown(0x27)) // Ctrl + RIGHT ARROW key
   {
     gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
@@ -211,7 +210,6 @@ void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
   }
   switch (message)
   {
-
   case WM_CHAR:
     if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46)) // Ctrl + Shift + F Key
     {
@@ -292,4 +290,36 @@ void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 gchar *select_sink_element()
 {
   return g_strdup(DEFAULT_VIDEO_SINK);
+}
+gpointer
+win32_kb_thread(gpointer user_data)
+{
+  Win32KeyHandler *handler = (Win32KeyHandler *)user_data;
+  HANDLE handles[2];
+
+  handles[0] = handler->event_handle;
+  handles[1] = handler->console_handle;
+
+  while (TRUE)
+  {
+    DWORD ret = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
+    static guint i = 0;
+
+    if (ret == WAIT_FAILED)
+    {
+      g_warning("WaitForMultipleObject Failed");
+      return NULL;
+    }
+
+    g_mutex_lock(&handler->lock);
+    if (handler->closing)
+    {
+      g_mutex_unlock(&handler->lock);
+
+      return NULL;
+    }
+    g_mutex_unlock(&handler->lock);
+  }
+
+  return NULL;
 }

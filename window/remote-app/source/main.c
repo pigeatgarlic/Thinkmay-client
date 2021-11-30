@@ -49,16 +49,6 @@ static gchar *video_sink = NULL;
 static GstElement *sink = NULL;
 static gboolean run_thread = FALSE;
 
-typedef struct
-{
-  GThread *thread;
-  HANDLE event_handle;
-  HANDLE console_handle;
-  gboolean closing;
-  GMutex lock;
-} Win32KeyHandler;
-
-static Win32KeyHandler *win32_key_handler = NULL;
 
 #define DEFAULT_VIDEO_SINK "d3d11videosink"
 
@@ -256,38 +246,7 @@ pipeline_runner_func(gpointer user_data)
 /// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 /// get stdin character
-static gpointer
-win32_kb_thread(gpointer user_data)
-{
-  Win32KeyHandler *handler = (Win32KeyHandler *)user_data;
-  HANDLE handles[2];
-
-  handles[0] = handler->event_handle;
-  handles[1] = handler->console_handle;
-
-  while (TRUE)
-  {
-    DWORD ret = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
-    static guint i = 0;
-
-    if (ret == WAIT_FAILED)
-    {
-      g_warning("WaitForMultipleObject Failed");
-      return NULL;
-    }
-
-    g_mutex_lock(&handler->lock);
-    if (handler->closing)
-    {
-      g_mutex_unlock(&handler->lock);
-
-      return NULL;
-    }
-    g_mutex_unlock(&handler->lock);
-  }
-
-  return NULL;
-}
+static 
 // --------------------------------->>>>>>>>>>>>>>>>>
 
 /////////////////////////////////////////////
