@@ -13,6 +13,10 @@ static RECT prev_rect = {
 };
 #define DEFAULT_VIDEO_SINK "d3d11videosink"
 RECT wr = {0, 0, 1920, 1080};
+static gint x = 0;
+static gint y = 0;
+static gint width = 1920;
+static gint height = 1080;
 
 void init_remote_app_gui(RemoteApp *app)
 {
@@ -24,7 +28,6 @@ _keydown(int *key)
 {
   return (GetAsyncKeyState(key) & 0x8000) != 0;
 }
-
 
 void adjust_window()
 {
@@ -183,19 +186,72 @@ HWND set_up_window(WNDCLASSEX wc, gchar *title, HINSTANCE hinstance)
                         hinstance, NULL);
 }
 
-void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, GstElement *sink)
 {
+
+  if (_keydown(0x11) && _keydown(0x27)) // Ctrl + RIGHT ARROW key
+  {
+    gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
+                                           x++, y, width, height);
+  }
+  else if (_keydown(0x11) && _keydown(0x25)) // Ctrl + LEFT ARROW key
+  {
+    gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
+                                           x--, y, width, height);
+  }
+  else if (GetKeyState(VK_UP) < 0) // Ctrl + UP Arrow key
+  {
+    gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
+                                           x, y--, width, height);
+  }
+  else if (_keydown(0x11) && _keydown(0x28)) // Ctrl + Down Arrow Key
+  {
+    gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
+                                           x, y++, width, height);
+  }
   switch (message)
   {
 
   case WM_CHAR:
-    if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46))
+    if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46)) // Ctrl + Shift + F Key
     {
       switch_fullscreen_mode(hwnd);
     }
-    if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50))
+    else if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50)) // Ctrl + Shift + P
     {
       // hidden mouse setting func
+    }
+
+    // handle setting rectangle video overlay
+
+    else if ((_keydown(0xA0) || _keydown(0xA1)) && _keydown(0xBE)) // the '>' Key
+    {
+      gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
+                                             x, y, width++, height);
+    }
+    else if ((_keydown(0xA0) || _keydown(0xA1)) && _keydown(0xBC)) // the '<' Key
+    {
+      gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
+                                             x, y, width--, height);
+    }
+    else if (_keydown(0xBB)) // the '+' key
+    {
+      gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
+                                             x, y, width, height++);
+    }
+    else if (_keydown(0xBD)) // the '-' key
+    {
+      gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
+                                             x, y, width, height--);
+    }
+    else if (_keydown(0x52)) //	R key
+    {
+      gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
+                                             x, y, -1, -1);
+    }
+    else if (_keydown(0x45)) //	E key
+    {
+      gst_video_overlay_expose(GST_VIDEO_OVERLAY(sink));
     }
     break;
   case WM_MOUSEWHEEL:
@@ -208,6 +264,7 @@ void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
       // a positive indicate the wheel is rotated away from the user (up)
     }
     break;
+
   case WM_LBUTTONDOWN:
     break;
   case WM_LBUTTONUP:
@@ -232,7 +289,7 @@ void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
     break;
   }
 }
-gchar* select_sink_element()
+gchar *select_sink_element()
 {
   return g_strdup(DEFAULT_VIDEO_SINK);
 }

@@ -49,11 +49,6 @@ static gchar *video_sink = NULL;
 static GstElement *sink = NULL;
 static gboolean run_thread = FALSE;
 
-static gint x = 0;
-static gint y = 0;
-static gint width = 1920;
-static gint height = 1080;
-
 typedef struct
 {
   GThread *thread;
@@ -73,6 +68,7 @@ static Win32KeyHandler *win32_key_handler = NULL;
 static LRESULT CALLBACK
 window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+  // modify after
   if (message == WM_DESTROY)
   {
     if (loop)
@@ -80,44 +76,16 @@ window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (pipeline_loop)
       g_main_loop_quit(pipeline_loop);
     return 0;
-  } else {
-    handle_message_window_proc(hWnd, message, wParam, lParam);
+  }
+  else
+  {
+    handle_message_window_proc(hWnd, message, wParam, lParam, sink);
   }
 
   return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
 /////  ---------------------------------------------->>>>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ////////////////////////////////////
 // get debug infor from the gstreamer pipeline
@@ -160,30 +128,6 @@ bus_msg(GstBus *bus, GstMessage *msg, gpointer user_data)
   return TRUE;
 }
 /// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //////////////////////////////////////////
 static gboolean
@@ -309,145 +253,8 @@ pipeline_runner_func(gpointer user_data)
   return NULL;
 }
 
-
 /// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-static void
-print_keyboard_help(void)
-{
-  /* *INDENT-OFF* */
-  static struct
-  {
-    const gchar *key_desc;
-    const gchar *key_help;
-  } key_controls[] = {
-      {"\342\206\222", "move overlay to right-hand side"},
-      {"\342\206\220", "move overlay to left-hand side"},
-      {"\342\206\221", "move overlay to upward"},
-      {"\342\206\223", "move overlay to downward"},
-      {">", "increase overlay width"},
-      {"<", "decrease overlay width"},
-      {"+", "increase overlay height"},
-      {"-", "decrease overlay height"},
-      {"r", "reset render rectangle"},
-      {"e", "expose overlay"},
-      {"k", "show keyboard shortcuts"},
-  };
-  /* *INDENT-ON* */
-
-  guint i, chars_to_pad, desc_len, max_desc_len = 0;
-
-  gst_print("\n\n%s\n\n", "Interactive mode - keyboard controls:");
-
-  for (i = 0; i < G_N_ELEMENTS(key_controls); ++i)
-  {
-    desc_len = g_utf8_strlen(key_controls[i].key_desc, -1);
-    max_desc_len = MAX(max_desc_len, desc_len);
-  }
-  ++max_desc_len;
-
-  for (i = 0; i < G_N_ELEMENTS(key_controls); ++i)
-  {
-    chars_to_pad = max_desc_len - g_utf8_strlen(key_controls[i].key_desc, -1);
-    gst_print("\t%s", key_controls[i].key_desc);
-    gst_print("%-*s: ", chars_to_pad, "");
-    gst_print("%s\n", key_controls[i].key_help);
-  }
-  gst_print("\n");
-}
-
-//////// get input character from std input
-static gboolean
-win32_kb_source_cb(Win32KeyHandler *handler)
-{
-  HANDLE h_input = handler->console_handle;
-  INPUT_RECORD buffer;
-  DWORD n;
-
-  if (PeekConsoleInput(h_input, &buffer, 1, &n) && n == 1)
-  {
-    ReadConsoleInput(h_input, &buffer, 1, &n);
-
-    if (buffer.EventType == KEY_EVENT && buffer.Event.KeyEvent.bKeyDown)
-    {
-      gchar key_val[2] = {0};
-
-      switch (buffer.Event.KeyEvent.wVirtualKeyCode)
-      {
-      case VK_RIGHT:
-        gst_println("Move xpos to %d", x++);
-        gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink), //// buildin function from gstreamer
-                                               x, y, width, height);
-        break;
-      case VK_LEFT:
-        gst_println("Move xpos to %d", x--);
-        gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
-                                               x, y, width, height);
-        break;
-      case VK_UP:
-        gst_println("Move ypos to %d", y--);
-        gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
-                                               x, y, width, height);
-        break;
-      case VK_DOWN:
-        gst_println("Move ypos to %d", y++);
-        gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
-                                               x, y, width, height);
-        break;
-      default:
-        key_val[0] = buffer.Event.KeyEvent.uChar.AsciiChar;
-        switch (key_val[0])
-        {
-        case '<':
-          gst_println("Decrease width to %d", width--);
-          gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
-                                                 x, y, width, height);
-          break;
-        case '>':
-          gst_println("Increase width to %d", width++);
-          gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
-                                                 x, y, width, height);
-          break;
-        case '+':
-          gst_println("Increase height to %d", height++);
-          gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
-                                                 x, y, width, height);
-          break;
-        case '-':
-          gst_println("Decrease height to %d", height--);
-          gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
-                                                 x, y, width, height);
-          break;
-        case 'r':
-          gst_println("Reset render rectangle by setting -1 width/height");
-          gst_video_overlay_set_render_rectangle(GST_VIDEO_OVERLAY(sink),
-                                                 x, y, -1, -1);
-          break;
-        case 'e':
-          gst_println("Expose overlay");
-          gst_video_overlay_expose(GST_VIDEO_OVERLAY(sink));
-          break;
-        case 'k':
-          print_keyboard_help();
-          break;
-        default:
-          break;
-        }
-        break;
-      }
-    }
-  }
-
-  return G_SOURCE_REMOVE;
-}
-//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-
-
-
-
-
-//////////////////////////////////////////////////////
 /// get stdin character
 static gpointer
 win32_kb_thread(gpointer user_data)
@@ -477,8 +284,6 @@ win32_kb_thread(gpointer user_data)
       return NULL;
     }
     g_mutex_unlock(&handler->lock);
-
-    g_idle_add((GSourceFunc)win32_kb_source_cb, handler);
   }
 
   return NULL;
@@ -496,7 +301,6 @@ gint main(gint argc, gchar **argv)
   GOptionContext *option_ctx;
   GError *error = NULL;
   gchar *title = NULL;
-  RECT wr = {0, 0, width, height};
   gint exitcode = 0;
   gboolean ret;
   GThread *thread = NULL;
@@ -588,8 +392,6 @@ gint main(gint argc, gchar **argv)
     pipeline_runner_func(NULL);
   }
 
-
-
 ///////////////////////////////////////////
 terminate:
   if (hwnd)
@@ -616,5 +418,5 @@ terminate:
   g_free(video_sink);
 
   return exitcode;
-/// --------------------------->>>>>>>>>>>>>>
+  /// --------------------------->>>>>>>>>>>>>>
 }
