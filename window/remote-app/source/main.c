@@ -53,7 +53,6 @@ gint main(gint argc, gchar **argv)
   GOptionContext *option_ctx;
   GError *error = NULL;
   gchar *title = NULL;
-  RECT wr = {0, 0, width, height};
   gint exitcode = 0;
   gboolean ret;
   GThread *thread = NULL;

@@ -166,7 +166,7 @@ HWND set_up_window(WNDCLASSEX wc, gchar *title, HINSTANCE hinstance)
                         hinstance, NULL);
 }
 
-void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, GstElement *sink)
 {
     switch (message)
     {
