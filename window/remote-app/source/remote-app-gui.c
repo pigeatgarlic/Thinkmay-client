@@ -168,45 +168,41 @@ HWND set_up_window(WNDCLASSEX wc, gchar *title, HINSTANCE hinstance)
 
 void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-  switch (message)
-  {
-
-  case WM_CHAR:
-    if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46))
+    switch (message)
     {
-      switch_fullscreen_mode(hwnd);
+        case WM_CHAR:
+          if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46)) {
+            switch_fullscreen_mode(hwnd);
+          } if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50)) {
+            // hidden mouse setting func
+          }
+          break;
+        case WM_MOUSEWHEEL:
+          if (GET_WHEEL_DELTA_WPARAM(wParam) < 0)
+          {
+            // negative indicates a rotation towards the user (down)
+          }
+          else if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+          {
+            // a positive indicate the wheel is rotated away from the user (up)
+          }
+          break;
+        case WM_LBUTTONDOWN:
+          break;
+        case WM_LBUTTONUP:
+          break;
+        case WM_RBUTTONDOWN:
+          break;
+        case WM_RBUTTONUP:
+          break;
+        case WM_MBUTTONDOWN:
+          break;
+        case WM_MBUTTONUP: // awaiting for test
+          break;
+        default:
+          // SetCapture(hWnd);
+          break;
     }
-    if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50))
-    {
-      // hidden mouse setting func
-    }
-    break;
-  case WM_MOUSEWHEEL:
-    if (GET_WHEEL_DELTA_WPARAM(wParam) < 0)
-    {
-      // negative indicates a rotation towards the user (down)
-    }
-    else if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
-    {
-      // a positive indicate the wheel is rotated away from the user (up)
-    }
-    break;
-  case WM_LBUTTONDOWN:
-    break;
-  case WM_LBUTTONUP:
-    break;
-  case WM_RBUTTONDOWN:
-    break;
-  case WM_RBUTTONUP:
-    break;
-  case WM_MBUTTONDOWN:
-    break;
-  case WM_MBUTTONUP: // awaiting for test
-    break;
-  default:
-    // SetCapture(hWnd);
-    break;
-  }
 }
 
 
@@ -214,29 +210,37 @@ void handle_message_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 void
 remote_app_redirect_gui(RemoteApp* app, GstElement* sink)
 {
-  GUI* gui = remote_app_get_gui(app);
-  adjust_window();
-  gui->window = set_up_window(wc, title, hinstance);
-  gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(sink),(guintptr)gui->window);
+    GUI* gui = remote_app_get_gui(app);
+    adjust_window(gui);
+    gui->window = set_up_window(wc, title, hinstance);
+    gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(sink),(guintptr)gui->window);
 }
 ///////////////////////////////////////////////////////////////////////
 /// get monitor size of entire screen instead of only the window
 
 static LRESULT CALLBACK
-window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+window_proc(HWND hWnd, 
+            UINT message, 
+            WPARAM wParam, 
+            LPARAM lParam)
 {
-  if (message == WM_DESTROY)
-  {
-    if (loop)
-      g_main_loop_quit(loop);
-    if (pipeline_loop)
-      g_main_loop_quit(pipeline_loop);
-    return 0;
-  } else {
-    handle_message_window_proc(hWnd, message, wParam, lParam);
-  }
+    if (message == WM_DESTROY)
+    {
+        remote_app_finalize(_gui.app,0,NULL);
+        return 0;
+    } else {
+        handle_message_window_proc(hWnd, message, wParam, lParam);
+    }
 
-  return DefWindowProc(hWnd, message, wParam, lParam);
+    return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-/////  ---------------------------------------------->>>>
+
+
+
+
+void
+gui_terminate(GUI* gui)
+{
+    DestroyWindow(gui->window);
+}

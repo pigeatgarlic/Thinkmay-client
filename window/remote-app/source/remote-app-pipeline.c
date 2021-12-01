@@ -120,46 +120,46 @@ handle_media_stream (GstPad * pad,
                     const char *sink_name,
                     RemoteApp* core)
 {
-  GstPad *qpad;
-  GstElement *q, *conv, *resample, *sink;
-  GstPadLinkReturn ret;
-  Pipeline* pipeline = remote_app_get_pipeline(core);
+    GstPad *qpad;
+    GstElement *q, *conv, *resample, *sink;
+    GstPadLinkReturn ret;
+    Pipeline* pipeline = remote_app_get_pipeline(core);
 
-  g_print ("Trying to handle stream with %s ! %s", convert_name, sink_name);
+    g_print ("Trying to handle stream with %s ! %s", convert_name, sink_name);
 
-  q = gst_element_factory_make ("queue", NULL);
-  g_assert_nonnull (q);
-  conv = gst_element_factory_make (convert_name, NULL);
-  g_assert_nonnull (conv);
-  sink = gst_element_factory_make (sink_name, NULL);
-  g_assert_nonnull (sink);
+    q = gst_element_factory_make ("queue", NULL);
+    g_assert_nonnull (q);
+    conv = gst_element_factory_make (convert_name, NULL);
+    g_assert_nonnull (conv);
+    sink = gst_element_factory_make (sink_name, NULL);
+    g_assert_nonnull (sink);
 
-  if (g_strcmp0 (convert_name, "audioconvert") == 0) {
-    /* Might also need to resample, so add it just in case.
-     * Will be a no-op if it's not required. */
-    resample = gst_element_factory_make ("audioresample", NULL);
-    g_assert_nonnull (resample);
-    gst_bin_add_many (GST_BIN (pipe), q, conv, resample, sink, NULL);
-    gst_element_sync_state_with_parent (q);
-    gst_element_sync_state_with_parent (conv);
-    gst_element_sync_state_with_parent (resample);
-    gst_element_sync_state_with_parent (sink);    
-    gst_element_link_many (q, conv, resample, sink, NULL);
-  } else {
-    gst_bin_add_many (GST_BIN (pipe), q, conv, sink, NULL);
-    gst_element_sync_state_with_parent (q);
-    gst_element_sync_state_with_parent (conv);
-    gst_element_sync_state_with_parent (sink);
-    gst_element_link_many (q, conv, sink, NULL);
-    pipeline->video_element[VIDEO_SINK] = sink;
-    pipeline->video_element[VIDEO_CONVERT] = conv;
-    setup_video_sink_navigator(core);
-  }
-  
-  qpad = gst_element_get_static_pad (q, "sink");
+    if (g_strcmp0 (convert_name, "audioconvert") == 0) {
+      /* Might also need to resample, so add it just in case.
+      * Will be a no-op if it's not required. */
+      resample = gst_element_factory_make ("audioresample", NULL);
+      g_assert_nonnull (resample);
+      gst_bin_add_many (GST_BIN (pipe), q, conv, resample, sink, NULL);
+      gst_element_sync_state_with_parent (q);
+      gst_element_sync_state_with_parent (conv);
+      gst_element_sync_state_with_parent (resample);
+      gst_element_sync_state_with_parent (sink);    
+      gst_element_link_many (q, conv, resample, sink, NULL);
+    } else {
+      gst_bin_add_many (GST_BIN (pipe), q, conv, sink, NULL);
+      gst_element_sync_state_with_parent (q);
+      gst_element_sync_state_with_parent (conv);
+      gst_element_sync_state_with_parent (sink);
+      gst_element_link_many (q, conv, sink, NULL);
+      pipeline->video_element[VIDEO_SINK] = sink;
+      pipeline->video_element[VIDEO_CONVERT] = conv;
+      setup_video_sink_navigator(core);
+    }
+    
+    qpad = gst_element_get_static_pad (q, "sink");
 
-  ret = gst_pad_link (pad, qpad);
-  g_assert_cmphex (ret, ==, GST_PAD_LINK_OK);
+    ret = gst_pad_link (pad, qpad);
+    g_assert_cmphex (ret, ==, GST_PAD_LINK_OK);
 }
 
 static void
@@ -167,27 +167,27 @@ on_incoming_decodebin_stream (GstElement * decodebin,
                               GstPad * pad,
                               RemoteApp* core)
 {
-  Pipeline* pipeline = remote_app_get_pipeline(core);
-  GstElement* pipe = pipeline->pipeline;
-  GstCaps *caps;
-  const gchar *name;
+    Pipeline* pipeline = remote_app_get_pipeline(core);
+    GstElement* pipe = pipeline->pipeline;
+    GstCaps *caps;
+    const gchar *name;
 
-  if (!gst_pad_has_current_caps (pad)) {
-    g_printerr ("Pad '%s' has no caps, can't do anything, ignoring\n",
-        GST_PAD_NAME (pad));
-    return;
-  }
+    if (!gst_pad_has_current_caps (pad)) {
+      g_printerr ("Pad '%s' has no caps, can't do anything, ignoring\n",
+          GST_PAD_NAME (pad));
+      return;
+    }
 
-  caps = gst_pad_get_current_caps (pad);
-  name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
+    caps = gst_pad_get_current_caps (pad);
+    name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
 
-  if (g_str_has_prefix (name, "video")) {
-    handle_media_stream (pad, pipe, "videoconvert", "d3dvideosink",core);
-  } else if (g_str_has_prefix (name, "audio")) {
-    handle_media_stream (pad, pipe, "audioconvert", "autoaudiosink",core);
-  } else {
-    g_printerr ("Unknown pad %s, ignoring", GST_PAD_NAME (pad));
-  }
+    if (g_str_has_prefix (name, "video")) {
+      handle_media_stream (pad, pipe, "videoconvert", "d3dvideosink",core);
+    } else if (g_str_has_prefix (name, "audio")) {
+      handle_media_stream (pad, pipe, "audioconvert", "autoaudiosink",core);
+    } else {
+      g_printerr ("Unknown pad %s, ignoring", GST_PAD_NAME (pad));
+    }
 }
 
 static void
@@ -195,38 +195,38 @@ on_incoming_stream (GstElement * webrtc,
                     GstPad * pad, 
                     RemoteApp * core)
 {
-  Pipeline* pipeline = remote_app_get_pipeline(core);
-  GstElement* pipe = pipeline->pipeline;
+    Pipeline* pipeline = remote_app_get_pipeline(core);
+    GstElement* pipe = pipeline->pipeline;
 
-  GstCaps* caps;
-  const gchar* name ,* encoding;
-  GstElement *decodebin;
-  GstPad *sinkpad;
-  
-  caps = gst_pad_get_current_caps(pad);
-  encoding = gst_structure_get_string(gst_caps_get_structure(caps, 0), "encoding-name");
-  name = gst_structure_get_name(gst_caps_get_structure(caps, 0));
+    GstCaps* caps;
+    const gchar* name ,* encoding;
+    GstElement *decodebin;
+    GstPad *sinkpad;
+    
+    caps = gst_pad_get_current_caps(pad);
+    encoding = gst_structure_get_string(gst_caps_get_structure(caps, 0), "encoding-name");
+    name = gst_structure_get_name(gst_caps_get_structure(caps, 0));
 
-  if (GST_PAD_DIRECTION (pad) != GST_PAD_SRC)
-    return;
+    if (GST_PAD_DIRECTION (pad) != GST_PAD_SRC)
+      return;
 
 
-  decodebin = gst_element_factory_make ("decodebin", NULL);
-//   g_object_set(decodebin, "connection-speed", 1000000,NULL);
-  
-//     // Create a 2nd transceiver for the receive only video stream
-//   GstCaps* video_caps =
-//     gst_caps_from_string
-//     ("application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000");
-//   g_object_set(decodebin,"sink-caps",video_caps,NULL);
-  g_signal_connect (decodebin, "pad-added",
-      G_CALLBACK (on_incoming_decodebin_stream), core);
-  gst_bin_add (GST_BIN (pipe), decodebin);
-  gst_element_sync_state_with_parent (decodebin);
+    decodebin = gst_element_factory_make ("decodebin", NULL);
+  //   g_object_set(decodebin, "connection-speed", 1000000,NULL);
+    
+  //     // Create a 2nd transceiver for the receive only video stream
+  //   GstCaps* video_caps =
+  //     gst_caps_from_string
+  //     ("application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000");
+  //   g_object_set(decodebin,"sink-caps",video_caps,NULL);
+    g_signal_connect (decodebin, "pad-added",
+        G_CALLBACK (on_incoming_decodebin_stream), core);
+    gst_bin_add (GST_BIN (pipe), decodebin);
+    gst_element_sync_state_with_parent (decodebin);
 
-  sinkpad = gst_element_get_static_pad (decodebin, "sink");
-  gst_pad_link (pad, sinkpad);
-  gst_object_unref (sinkpad);
+    sinkpad = gst_element_get_static_pad (decodebin, "sink");
+    gst_pad_link (pad, sinkpad);
+    gst_object_unref (sinkpad);
 }
 
 
@@ -274,14 +274,14 @@ handle_event(GstPad* pad,
             GstObject* parent, 
             GstEvent* event)
 {
-  switch (GST_EVENT_TYPE (event)) {
-    case GST_EVENT_NAVIGATION:
-      handle_navigator(event,pipeline_singleton.core);
-      break;
-    default:
-      gst_pad_event_default(pad, parent,event);
-      break;
-  }
+    switch (GST_EVENT_TYPE (event)) {
+      case GST_EVENT_NAVIGATION:
+        handle_navigator(event,pipeline_singleton.core);
+        break;
+      default:
+        gst_pad_event_default(pad, parent,event);
+        break;
+    }
 }
 
 
