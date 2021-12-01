@@ -7,82 +7,158 @@
 /// 
 /// @copyright Copyright (c) 2021
 /// 
+#include <remote-app.h>
+#include <remote-app-type.h>
 
-#include <stdio.h>
 #include <gst/gst.h>
-#include <gst/video/videooverlay.h>
-#include <gst/video/gstvideosink.h>
-#include <windows.h>
 #include <glib-2.0/glib.h>
-#include <string.h>
-#include <json-glib/json-glib.h>
-#include <human-interface-opcode.h>
-#include <message-form.h>
-#include <remote-app-gui.h>
+
+#ifndef GST_USE_UNSTABLE_API
+#define GST_USE_UNSTABLE_API
+#endif
+
+static gchar signalling_url[50] = "wss://host.thinkmay.net/Handshake";
+static gchar turn[100] = "turn://thinkmaycoturn:thinkmaycoturn_password@turn:stun.thinkmay.net:3478";
+static gint  session_id = 0;
+static gchar video_codec[50] = {0};
+static gchar audio_codec[50] = {0}; 
+static gchar connection_string[200] = {0};
 
 
+#define GST_DEBUG               4
+
+static GOptionEntry entries[] = {
+    {"sessionid", 0, 0, G_OPTION_ARG_INT, &session_id,
+        "String ID of the peer to connect to", "ID"},
+    {"signalling", 0, 0, G_OPTION_ARG_STRING, &signalling_url,
+        "Signalling server to connect to", "URL"},
+    {"turn", 0, 0, G_OPTION_ARG_STRING, &turn,
+        "Request that the peer generate the offer and we'll answer", "URL"},
+    {"audiocodec", 0, 0, G_OPTION_ARG_STRING, &audio_codec,
+        "audio codec use for decode bin", "codec"},
+    {"videocodec", 0, 0, G_OPTION_ARG_STRING, &video_codec,
+        "video codec use for decode bin", "codec"},
+    {"connection", 0, 0, G_OPTION_ARG_STRING, &connection_string,
+        "connection ", "codec"},
+    {NULL},
+};
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/////////////////////////////////////////////
-gint main(gint argc, gchar **argv)
+char**
+split(char *string, 
+      const char delimiter) 
 {
-  WNDCLASSEX wc = {
-      0,
-  };
-  HINSTANCE hinstance = GetModuleHandle(NULL);
-  GIOChannel *msg_io_channel;
-  GOptionContext *option_ctx;
-  GError *error = NULL;
-  gchar *title = NULL;
-  gint exitcode = 0;
-  gboolean ret;
-  GThread *thread = NULL;
-
-
-  option_ctx = g_option_context_new("WIN32 video overlay example");
-  g_option_context_add_main_entries(option_ctx, options, NULL);
-  g_option_context_add_group(option_ctx, gst_init_get_option_group());
-  ret = g_option_context_parse(option_ctx, &argc, &argv, &error);
-  g_option_context_free(option_ctx);
-  if (!ret)
-  {
-    g_printerr("option parsing failed: %s\n", error->message);
-    g_clear_error(&error);
-    exit(1);
-  }
-  ////////////////////////////////////////////////////////////////////////////
-  // END get input option
-
-  GThread *game_pad_thread = g_thread_new("gamepad thread", gamepad_thread_func, NULL);
-
-  /* prepare window */
-  ///////////////////////////////////
-  wc.cbSize = sizeof(WNDCLASSEX);
-  wc.style = CS_HREDRAW | CS_VREDRAW; //// ????
-  wc.lpfnWndProc = (WNDPROC)window_proc;
-  wc.hInstance = hinstance;
-  wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-  wc.lpszClassName = "GstWIN32VideoOverlay";
-  RegisterClassEx(&wc);
-  //////////////////////////////////////
-
+    int length = 0, count = 0, i = 0, j = 0;
+    while(*(string++)) {
+        if (*string == delimiter) count++;
+        length++;
+    }
+    string -= (length + 1); // string was incremented one more than length
+    char **array = (char **)malloc(sizeof(char *) * (length + 1));
+    char ** base = array;
+    for(i = 0; i < (count + 1); i++) {
+        j = 0;
+        while(string[j] != delimiter) j++;
+        j++;
+        *array = (char *)malloc(sizeof(char) * j);
+        memcpy(*array, string, (j-1));
+        (*array)[j-1] = '\0';
+        string += j;
+        array++;
+    }
+    *array = '\0';
+    return base;  
 }
+
+void
+string_split_free(gchar** base)
+{
+    gint i = 0;
+    while(base[i]) {
+        free(base[i]);
+        i++;
+    }
+    free(base);
+    base = NULL;
+}
+
+
+int
+main(int argc, char* argv[])
+{
+    GOptionContext *context;
+    GError *error = NULL;
+
+    context = g_option_context_new ("- thinkmay gstreamer client");
+    g_option_context_add_main_entries (context, entries, NULL);
+    g_option_context_add_group (context, gst_init_get_option_group ());
+    if (!g_option_context_parse (context, &argc, &argv, &error)) {
+        g_printerr ("Error initializing: %s\n", error->message);
+        return -1;
+    }
+
+    if(argc == 2)
+    {
+        gchar** array = split(argv[1],'/');
+
+        if(g_strcmp0(array[0],"thinkmay:"))
+        {
+            g_print("%s :",array[0]);
+            g_printerr("wrong uri, remote app exiting");
+            return;
+        }
+
+
+        gchar** array_param = split(array[2],'.');
+        do
+        {
+            if(*(array_param))
+            {
+                gchar** parameter = split(*(array_param),'=');
+                if(!g_strcmp0(*(parameter ),"sessionid"))
+                {
+                    gint id = strtol(*(parameter +1),NULL,10);
+                    session_id = id;
+                }
+                else if(!g_strcmp0(*(parameter ),"signalling"))
+                {
+                    memcpy(signalling_url,*(parameter +1),strlen(*(parameter +1)));
+                }
+                else if(!g_strcmp0(*(parameter ),"turn"))
+                {
+                    memcpy(turn,*(parameter +1),strlen(*(parameter +1)));
+                }
+                else if(!g_strcmp0(*(parameter ),"videocodec"))
+                {
+                    memcpy(video_codec,*(parameter +1),strlen(*(parameter +1)));
+                }
+            }
+        }
+        while(*(array_param++));
+    }
+
+    g_print("Starting connnection with session client id %d, videocodec %s , signalling server url %s\n",session_id,video_codec,signalling_url);
+
+    remote_app_initialize(session_id,
+                    signalling_url, 
+                    turn, 
+                    audio_codec, 
+                    video_codec);
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

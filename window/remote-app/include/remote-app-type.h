@@ -73,7 +73,14 @@ typedef void            (*HandleIntputFunction)           (gint device);
 /// </summary> 
 typedef struct 			_Pipeline 				            Pipeline;
 
+/// <summary>
+/// 
+/// </summary>
+typedef struct          _HIDHandler                         HIDHandler;
 
+/// <summary>
+/// </summary>
+/// 
 typedef struct 			_GUI 				                GUI;
 
 
@@ -89,7 +96,7 @@ typedef struct 			_RemoteApp 			                RemoteApp;
 typedef struct 			_QoE					                QoE;
 
 /// <summary>
-/// webrtchub struct responsible for handle datachannel message from client
+/// 
 /// </summary>
 typedef struct			_WebRTCHub				                WebRTCHub;
 

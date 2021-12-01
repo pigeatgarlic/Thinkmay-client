@@ -177,6 +177,12 @@ remote_app_get_qoe(RemoteApp* self)
 	return self->qoe;
 }
 
+GUI*
+remote_app_get_gui(RemoteApp* core)
+{
+	return core->gui;
+}
+
 SignallingHub*
 remote_app_get_signalling_hub(RemoteApp* core)
 {

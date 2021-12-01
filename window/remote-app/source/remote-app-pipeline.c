@@ -9,6 +9,7 @@
 #include <logging.h>
 #include <qoe.h>
 #include <exit-code.h>
+#include <platform-selection.h>
 
 #include <gst/gst.h>
 #include <glib-2.0/glib.h>
@@ -153,7 +154,11 @@ handle_media_stream (GstPad * pad,
       gst_element_link_many (q, conv, sink, NULL);
       pipeline->video_element[VIDEO_SINK] = sink;
       pipeline->video_element[VIDEO_CONVERT] = conv;
+
+#ifndef G_OS_WIN32
       setup_video_sink_navigator(core);
+#endif
+
     }
     
     qpad = gst_element_get_static_pad (q, "sink");
@@ -182,7 +187,7 @@ on_incoming_decodebin_stream (GstElement * decodebin,
     name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
 
     if (g_str_has_prefix (name, "video")) {
-      handle_media_stream (pad, pipe, "videoconvert", "d3dvideosink",core);
+      handle_media_stream (pad, pipe, "videoconvert", DEFAULT_VIDEO_SINK,core);
     } else if (g_str_has_prefix (name, "audio")) {
       handle_media_stream (pad, pipe, "audioconvert", "autoaudiosink",core);
     } else {
@@ -291,10 +296,7 @@ setup_video_sink_navigator(RemoteApp* core)
     Pipeline* pipeline = remote_app_get_pipeline(core);
     GstPad* pad = gst_element_get_static_pad(pipeline->video_element[VIDEO_CONVERT],"src");
 
-#ifndef G_OS_WIN32
     gst_pad_set_event_function_full(pad,handle_event,core,NULL);
-
-#endif
 }
 
  

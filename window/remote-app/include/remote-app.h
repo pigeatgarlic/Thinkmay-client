@@ -90,20 +90,7 @@ WebRTCHub*		remote_app_get_rtc_hub				(RemoteApp* self);
 /// <returns></returns>
 QoE*			remote_app_get_qoe					(RemoteApp* self);
 
-/// <summary>
-/// set state of session core object,
-/// </summary>
-/// <param name="core">a string represent state of session core</param>
-/// <param name="state"></param>
-void			remote_app_set_state					(RemoteApp* core, 
-														 CoreState state);
 
-/// <summary>
-/// get core state from session core object
-/// </summary>
-/// <param name="self"></param>
-/// <returns></returns>
-CoreState		remote_app_get_state					(RemoteApp* self);
 
 /// <summary>
 /// get signalling hub from session core object,
@@ -123,11 +110,5 @@ SignallingHub*	remote_app_get_signalling_hub			(RemoteApp* core);
 void			report_remote_app_error				(RemoteApp* self,
 														 ErrorCode code);
 
-/// <summary>
-/// get main context from session core
-/// </summary>
-/// <param name="core"></param>
-/// <returns></returns>
-GMainContext*	remote_app_get_main_context			(RemoteApp* core);
 
 #endif 
