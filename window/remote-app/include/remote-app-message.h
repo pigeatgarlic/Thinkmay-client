@@ -1,3 +1,15 @@
+/**
+ * @file remote-app-message.h
+ * @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
+ * @brief 
+ * @version 1.0
+ * @date 2021-12-02
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
+#ifndef __REMOTE_APP_MESSAGE_H__
+#define __REMOTE_APP_MESSAGE_H__
 #include <remote-app-type.h>
 #include <remote-app.h>
 
@@ -6,20 +18,22 @@
 
 
 
-/// <summary>
-/// perform sending message to other module
-/// </summary>
-/// <param name="self"></param>
-/// <param name="message"></param>
-/// <returns></returns>
+/**
+ * @brief 
+ * perform send message to worker node
+ * @param self 
+ * @param message 
+ */
 void				send_message			(RemoteApp* self,
-											 Message* message);
+											 JsonObject* message);
 	
-/// <summary>
-/// GATEWAY function, handle all message
-/// </summary>
-/// <param name="core"></param>
-/// <param name="data"></param>
-void				remote_app_on_message(RemoteApp* core,
+/**
+ * @brief 
+ * handle message on remote app
+ * @param core 
+ * @param data 
+ */
+void				remote_app_on_message	(RemoteApp* core,
 											gchar* data);
 
+#endif

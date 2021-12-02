@@ -1,12 +1,15 @@
-/// <summary>
-/// @file remote-app-pipeline.h
-/// @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
-/// </summary>
-/// @version 1.0
-/// @date 2021-09-05
-/// 
-/// @copyright Copyright (c) 2021
-/// 
+/**
+ * @file remote-app-pipeline.h
+ * @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
+ * @brief 
+ * @version 1.0
+ * @date 2021-12-02
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
+#ifndef __REMOTE_APP_PIPELINE_H__
+#define __REMOTE_APP_PIPELINE_H__
 #include <remote-app-type.h>
 #include <gst/gst.h>
 
@@ -16,32 +19,30 @@
 
 
 
-/// <summary>
-/// setup pipeline then start stream, 
-/// the stream will include audio and video
-/// </summary>
-/// <param name="core"></param>
-/// <returns></returns>
+/**
+ * @brief Set the up pipeline object
+ * prepare and setup pipeline by creating gstelement and connect necessary signal handler
+ * @param core 
+ * @return gpointer 
+ */
 gpointer			setup_pipeline					(RemoteApp* core);
 
 
-/// <summary>
-/// get GstElement pipeline of this pipeline
-/// </summary>
-/// <param name="pipeline"></param>
-/// <returns>pipeline element of </returns>
-GstElement*			pipeline_get_pipline			(Pipeline* pipeline);
 
-/// <summary>
-/// get webrtcbin element from pipeline
-/// </summary>
-/// <param name="pipeline"></param>
-/// <returns></returns>
+
+/**
+ * @brief 
+ * get webrtcbin from pipeline
+ * @param pipeline 
+ * @return GstElement* webrtcbin
+ */
 GstElement*			pipeline_get_webrtc_bin			(Pipeline* pipeline);
 
-/// <summary>
-/// initliaze pipeline,
-/// include assigning memory to pipeline
-/// </summary>
-/// <returns></returns>
+/**
+ * @brief 
+ * initialize pipeline
+ * @param core 
+ * @return Pipeline* newly created pipeline
+ */
 Pipeline*			pipeline_initialize				(RemoteApp* core);
+#endif

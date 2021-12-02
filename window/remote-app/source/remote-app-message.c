@@ -22,14 +22,6 @@
 
 
 
-/// <summary>
-/// responsible for message from agent and session loader.
-/// attached with "on-message" signal of SharedMemoryLink object,
-/// refer to on_link_connected callback function
-/// </summary>
-/// <param name="self"></param>
-/// <param name="msg"></param>
-/// <param name="user_data"></param>
 void
 remote_app_on_message(RemoteApp* core,
 						 gchar* data)
@@ -64,6 +56,3 @@ send_message(RemoteApp* self,
 	{
 	}
 }
-
-
-

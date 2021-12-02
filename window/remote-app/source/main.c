@@ -1,12 +1,13 @@
-/// <summary>
-/// @file main.c
-/// @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
-/// </summary>
-/// @version 1.0
-/// @date 2021-11-30
-/// 
-/// @copyright Copyright (c) 2021
-/// 
+/**
+ * @file main.c
+ * @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
+ * @brief 
+ * @version 1.0
+ * @date 2021-12-02
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
 #include <remote-app.h>
 #include <remote-app-type.h>
 

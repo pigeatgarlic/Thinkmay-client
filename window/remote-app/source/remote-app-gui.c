@@ -151,7 +151,6 @@ get_monitor_size(RECT *rect, HWND *hwnd)
 
     return TRUE;
 }
-////////////////////////////////////////////////////////////////////////
 
 static gboolean
 adjust_video_position(RemoteApp* app, gint x, gint y, gint width, gint height)
@@ -180,6 +179,12 @@ window_proc(HWND hWnd, UINT message,
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
+/**
+ * @brief Set the up window object
+ * setup window 
+ * @param gui 
+ * @return HWND 
+ */
 HWND 
 set_up_window(GUI* gui)
 {
@@ -243,7 +248,8 @@ handle_message_window_proc(HWND hwnd,
 
 
 void
-remote_app_redirect_gui(RemoteApp* app, GstElement* sink)
+remote_app_redirect_gui(RemoteApp* app, 
+                        GstElement* sink)
 {
 
     GUI* gui = remote_app_get_gui(app);
@@ -251,8 +257,6 @@ remote_app_redirect_gui(RemoteApp* app, GstElement* sink)
     gui->window = set_up_window(gui);
     gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(sink),(guintptr)gui->window);
 }
-///////////////////////////////////////////////////////////////////////
-/// get monitor size of entire screen instead of only the window
 
 
 

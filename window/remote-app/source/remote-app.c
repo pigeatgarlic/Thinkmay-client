@@ -1,3 +1,13 @@
+/**
+ * @file remote-app.c
+ * @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
+ * @brief 
+ * @version 1.0
+ * @date 2021-12-02
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
 #include <remote-app-signalling.h>
 #include <remote-app-remote-config.h>
 #include <remote-app-pipeline.h>
@@ -7,7 +17,6 @@
 #include <remote-app-type.h>
 
 #include <exit-code.h>
-#include <error-code.h>
 #include <module-code.h>
 
 
@@ -35,10 +44,16 @@ struct _RemoteApp
 
 
 
-/// <summary>
-/// setup slave session, this step include get value from json config file 
-/// </summary>
-/// <param name="self"></param>
+/**
+ * @brief 
+ * setup session 
+ * @param self 
+ * @param session_id 
+ * @param signalling_url 
+ * @param turn 
+ * @param audio_codec 
+ * @param video_codec 
+ */
 static void
 remote_app_setup_session(RemoteApp* self, 
 						gint session_id, 
@@ -67,12 +82,9 @@ remote_app_setup_session(RemoteApp* self,
 	qoe_setup(self->qoe,audio,video);
 
 
-	signalling_hub_set_signalling_state(self->signalling, SIGNALLING_SERVER_READY);
-	signalling_hub_set_peer_call_state(self->signalling, PEER_CALL_READY);
 }
 
 
-static RemoteApp core = {0};
 
 
 RemoteApp*
@@ -82,14 +94,15 @@ remote_app_initialize(gint session_id,
 					  gchar* audio_codec,
 					  gchar* video_codec)
 {
-	core.hub =				webrtchub_initialize();
-	core.signalling =		signalling_hub_initialize(&core);
+	RemoteApp* app= malloc(sizeof(RemoteApp));
+	app->hub =				webrtchub_initialize();
+	app->signalling =		signalling_hub_initialize(app);
 
-	core.qoe =				qoe_initialize();
-	core.pipe =				pipeline_initialize(&core);
-	core.loop =				g_main_loop_new(NULL, FALSE);
+	app->qoe =				qoe_initialize();
+	app->pipe =				pipeline_initialize(app);
+	app->loop =				g_main_loop_new(NULL, FALSE);
 	 
-	remote_app_setup_session(&core, 
+	remote_app_setup_session(app, 
 							session_id, 
 							signalling_url, 
 							turn, 
@@ -97,11 +110,11 @@ remote_app_initialize(gint session_id,
 							video_codec);
 
 
-	remote_app_setup_pipeline(&core);
+	setup_pipeline(app);
 
-	remote_app_connect_signalling_server(&core);
-	g_main_loop_run(core.loop);
-	return &core;	
+	connect_to_websocket_signalling_server_async(app);
+	g_main_loop_run(app->loop);
+	return app;	
 }
 
 
@@ -109,24 +122,9 @@ remote_app_initialize(gint session_id,
 
 
 
-void
-remote_app_connect_signalling_server(RemoteApp* self)
-{
-	connect_to_websocket_signalling_server_async(self);
-}
-
-void
-remote_app_setup_pipeline(RemoteApp* self)
-{
-	setup_pipeline(self);
-}				
 
 
-void
-remote_app_send_message(RemoteApp* core, JsonObject* message)
-{
-	send_message(core, message);
-}
+
 
 
 

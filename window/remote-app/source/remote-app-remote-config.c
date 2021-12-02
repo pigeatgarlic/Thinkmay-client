@@ -1,12 +1,13 @@
-/// <summary>
-/// @file remote-app-remote-config.c
-/// @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
-/// </summary>
-/// @version 1.0
-/// @date 2021-09-06
-/// 
-/// @copyright Copyright (c) 2021
-/// 
+/**
+ * @file remote-app-remote-config.c
+ * @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
+ * @brief 
+ * @version 1.0
+ * @date 2021-12-02
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
 #include <remote-app-remote-config.h>
 #include <remote-app-type.h>
 #include <remote-app-pipeline.h>
@@ -32,12 +33,12 @@ struct _QoE
 
 };
 
-static QoE _qoe = {0};
 
 QoE*
 qoe_initialize()
 {
-	return &_qoe;
+	QoE* qoe = malloc(sizeof(QoE));
+	return qoe;
 }
 
 
@@ -51,11 +52,6 @@ qoe_setup(QoE* qoe,
 	qoe->codec_audio = audio_codec;
 	qoe->codec_video = video_codec;
 }
-
-
-
-
-
 
 Codec
 qoe_get_audio_codec(QoE* qoe)

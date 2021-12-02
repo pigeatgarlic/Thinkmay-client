@@ -1,65 +1,16 @@
-/// <summary>
-/// @file remote-app-type.h
-/// @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
-/// </summary>
-/// @version 1.0
-/// @date 2021-09-05
-/// 
-/// 
-/// @copyright Copyright (c) 2021
+/**
+ * @file remote-app-type.h
+ * @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
+ * @brief 
+ * @version 1.0
+ * @date 2021-12-02
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
 #ifndef __REMOTE_APP_TYPE_H__
 #define __REMOTE_APP_TYPE_H__
 #include <glib-2.0/glib.h>
-
-/*session core state*/ 
-#define REMOTE_APP_INITIALIZING                     "Session core initializing"
-#define	SESSION_INFORMATION_SETTLED					"Session information settled"
-
-#define SESSION_REGISTERED							"Session registered"
-
-#define SESSION_HANDSHAKING							"Session handshaking"
-
-#define REMOTE_CONNECT_STARTED						"Remote connect started"
-
-
-
-/*Pipeline state macros*/
-#define PIPELINE_NOT_READY							"Pipeline not ready"
-
-#define PIPELINE_READY								"Pipeline ready"
-
-#define PIPELINE_CREATING_ELEMENT					"Pipeline creating element"
-
-#define PIPELINE_SETTING_UP_ELEMENT					"Pipeline setting up element"
-
-#define PIPELINE_CONNECT_ELEMENT_SIGNAL				"Pipeline connect element signal"
-
-#define	PIPELINE_SETUP_DONE							"Pipeline setup done"
-
-
-/*SignallingState macros*/
-#define SIGNALLING_SERVER_NOT_READY					"Signalling server not ready"
-
-#define SIGNALLING_SERVER_READY						"Signalling server ready"
-
-#define	SIGNALLING_SERVER_CONNECTING				"Signalling server connecting"
-
-#define	SIGNALLING_SERVER_CONNECTED					"Signalling server connected"            /* Ready to register */
-
-#define	SIGNALLING_SERVER_REGISTERING				"Signalling server registering"
-
-#define	SIGNALLING_SERVER_REGISTER_DONE				"Signalling server registering done"            /* Ready to call a peer */
-
-#define	SIGNALLING_SERVER_CLOSED					"Signalling server closed"            /* server connection closed by us or the server */
-
-/*PEER CALL MACROS*/
-#define PEER_CALL_NOT_READY							"Peer call not ready"
-
-#define PEER_CALL_READY								"Peer call ready"
-
-#define	PEER_CALL_NEGOTIATING						"Peer call negotiating"
-
-#define PEER_CALL_DONE								"Peer call done"
 
 
 
@@ -67,70 +18,55 @@
 typedef void            (*HandleIntputFunction)           (gint device);
 
 
-/// <summary>
-/// Pipeline is a struct contain all GstElement neccessary for
-/// session core to encode video and audio
-/// </summary> 
+/**
+ * @brief 
+ * pipeline is a datastructure that wrap around handling of gstelement
+ */
 typedef struct 			_Pipeline 				            Pipeline;
 
-/// <summary>
-/// 
-/// </summary>
+/**
+ * @brief 
+ * hid handler is a datastructure that wrap around handling of 
+ */
 typedef struct          _HIDHandler                         HIDHandler;
 
-/// <summary>
-/// </summary>
-/// 
+/**
+ * @brief 
+ * GUI is a datastructure wrap around creation of remote window and win32 input handling
+ */
 typedef struct 			_GUI 				                GUI;
 
-
-/// <summary>
-/// Session core is a struct represent for session core module
-/// </summary> 
+/**
+ * @brief 
+ * remote app is a data structure that wrap around all functionality of remote app
+ */
 typedef struct 			_RemoteApp 			                RemoteApp;
 
-/// <summary>
-/// qoe struct responsible for store recorded qoe metrict and other variable related to 
-/// quality of experience of session core 
-/// </summary> 
+/**
+ * @brief 
+ * QoE is a datastructure that wrap around collection and management of streaming quality
+ */
 typedef struct 			_QoE					                QoE;
 
-/// <summary>
-/// 
-/// </summary>
+/**
+ * @brief 
+ * WebRTCHub is a datastructure that wrap around communication method with session core
+ */
 typedef struct			_WebRTCHub				                WebRTCHub;
 
-/// <summary>
-/// signalling hub responsible for handle ice candidate and sdp negotiation with client module 
-/// through signalling server.
-/// </summary>
+/**
+ * @brief 
+ * Signalling hub is a datastructure that wrap around connection of remote app with signalling hub
+ */
 typedef struct 			_SignallingHub			                SignallingHub;
 
-/// <summary>
-/// 
-/// </summary>
+/**
+ * @brief 
+ * Hid Input is a datastructure that wrap around all parameter 
+ * that captured by remoteapp related to human interface device
+ */
 typedef struct			_HidInput								HidInput;
 
-
-/// <summary>
-/// session core state in form of string
-/// </summary>
-typedef					gchar*					                CoreState;
-
-/// <summary>
-/// PipelineState in form of string
-/// </summary>
-typedef					gchar*					                PipelineState;
-
-/// <summary>
-/// signalling state in form of string
-/// </summary>
-typedef					gchar*					                SignallingServerState;
-
-/// <summary>
-/// peer call state in form of string
-/// </summary>
-typedef					gchar*					                PeerCallState;
 
 
 #endif

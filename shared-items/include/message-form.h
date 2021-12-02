@@ -6,53 +6,45 @@
 
 #include <module-code.h>
 
-typedef 		    JsonObject				Message;
-
-/// <summary>
-/// initialize message (json_object) 
-/// with given from, destination, opcode and data (Message datatype)
-/// </summary>
-/// <param name="from"></param>
-/// <param name="to"></param>
-/// <param name="opcode"></param>
-/// <param name="data"></param>
-/// <param name="data_size"></param>
-/// <returns></returns>
-Message*            message_init                (Module from,
+JsonObject*            message_init              (Module from,
                                                  Module to,
                                                  gint opcode,
-                                                 Message* data);
+                                                 JsonObject* data);
 
-/// <summary>
-/// convert json object to string to save to file or send to other module
-/// </summary>
-/// <param name="object"></param>
-/// <returns></returns>
+/**
+ * @brief Get the string from json object object
+ * 
+ * @param object 
+ * @return gchar* 
+ */
 gchar*              get_string_from_json_object (JsonObject* object);
 
-/// <summary>
-/// convert string to json object
-/// </summary>
-/// <param name="string">string to convert to json</param>
-/// <param name="error">error pointer to receive any error might occour, should be compare to null after call this function</param>
-/// <returns></returns>
-Message*            get_json_object_from_string(gchar* string,
+/**
+ * @brief Get the json object from string object
+ * 
+ * @param string 
+ * @param error 
+ * @param parser 
+ * @return Message* 
+ */
+JsonObject*            get_json_object_from_string(gchar* string,
                                                 GError** error,
                                                 JsonParser* parser);
 
-/// <summary>
-/// create empty messsage to send to host (message with " " data)
-/// </summary>
-/// <param name="from"></param>
-/// <param name="to"></param>
-/// <param name="opcode"></param>
-/// <returns></returns>
-Message*            empty_message_init          (Module from,
+/**
+ * @brief 
+ * 
+ * @param from 
+ * @param to 
+ * @param opcode 
+ * @return JsonObject* 
+ */
+JsonObject*            empty_message_init          (Module from,
 			                                    Module to,
 			                                    gint opcode);
 
 
-Message*            get_json_object_from_file   (gchar* file_name,
+JsonObject*            get_json_object_from_file   (gchar* file_name,
                                                  GError** error);
 
 #endif

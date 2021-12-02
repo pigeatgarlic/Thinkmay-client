@@ -1,12 +1,13 @@
-/// <summary>
-/// @file remote-app-remote-config.h
-/// @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
-/// </summary>
-/// @version 1.0
-/// @date 2021-09-05
-/// 
-/// @copyright Copyright (c) 2021
-/// 
+/**
+ * @file remote-app-remote-config.h
+ * @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
+ * @brief 
+ * @version 1.0
+ * @date 2021-12-02
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
 #include <remote-app-type.h>
 #include "remote-app.h"
 #include <gst/gst.h>
@@ -16,40 +17,38 @@
 
 
 
-/// <summary>
-/// initialize qoe metric measurement
-/// </summary> 
-/// <returns></returns>
+/**
+ * @brief 
+ * initialize qoe metric collection
+ * @return QoE* 
+ */
 QoE*			qoe_initialize						();
 
-/// <summary>
-/// setup qoe metric measurement
-/// </summary> 
-/// <param name="qoe"></param>
-/// <param name="screen_width"></param>
-/// <param name="screen_height"></param>
-/// <param name="audio_codec"></param>
-/// <param name="video_codec"></param>
-/// <param name="qoe_mode"></param>
+/**
+ * @brief 
+ * setup qoe 
+ * @param qoe 
+ * @param audio_codec 
+ * @param video_codec 
+ */
 void			qoe_setup							(QoE* qoe,
 		  											Codec audio_codec,
 		  											Codec video_codec);
 
 
-/// <summary>
-/// </summary>
-/// update current qoe metric parameter 
-/// (related to experience quality of the stream),
-/// then, adaptive bitrate algorithm will be applied (if available)
-/// <param name="core"></param>
-/// <param name="time"></param>
-/// <param name="framerate"></param>
-/// <param name="audio_latency"></param>
-/// <param name="video_latency"></param>
-/// <param name="audio_bitrate"></param>
-/// <param name="video_bitrate"></param>
-/// <param name="bandwidth"></param>
-/// <param name="packets_lost"></param>
+/**
+ * @brief 
+ * update QoS
+ * @param core 
+ * @param time 
+ * @param framerate 
+ * @param audio_latency 
+ * @param video_latency 
+ * @param audio_bitrate 
+ * @param video_bitrate 
+ * @param bandwidth 
+ * @param packets_lost 
+ */
 void			qoe_update_quality					(RemoteApp* core,
 													 gint time,
 													 gint framerate,
@@ -60,16 +59,18 @@ void			qoe_update_quality					(RemoteApp* core,
 												     gint bandwidth,
 													 gint packets_lost);
 
-/// <summary>
-/// get audio codec from current remote session
-/// </summary>
-/// <param name="qoe"></param>
-/// <returns></returns>
+/**
+ * @brief 
+ * get audio codec of the stream
+ * @param qoe 
+ * @return Codec 
+ */
 Codec			qoe_get_audio_codec					(QoE* qoe);
 
-/// <summary>
-/// get video codec from current remote session
-/// </summary>
-/// <param name="qoe"></param>
-/// <returns></returns>
+/**
+ * @brief 
+ * get video codec of the stream
+ * @param qoe 
+ * @return Codec 
+ */
 Codec			qoe_get_video_codec					(QoE* qoe);

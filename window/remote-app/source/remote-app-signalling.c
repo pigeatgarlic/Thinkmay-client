@@ -6,7 +6,6 @@
 
 #include <logging.h>
 #include <exit-code.h>
-#include <error-code.h>
 #include <signalling-message.h>
 
 #include <gst/gst.h>
@@ -27,62 +26,48 @@
 
 struct _SignallingHub
 {
-    /// <summary>
-    /// websocket connection object encapsulate websocket connection between slave and signalling server,
-    /// we must provide message handler function.
-    /// </summary>
+    /**
+     * @brief 
+     * websocket connection to connect with signalling server
+     */
     SoupWebsocketConnection* connection;
 
-    /// <summary>
-    /// soup session represent a session between session core and signalling server,
-    /// it encapsulate signalling url and disable ssl option
-    /// </summary>
+    /**
+     * @brief 
+     * soup session for connection witb signalling server
+     */
     SoupSession* session;
 
-    /// <summary>
-    /// session slave id use to register session with signalling server
-    /// </summary>
-    gint SessionClientID;
-
-    /// <summary>
-    /// url of signalling server
-    /// </summary>
+    /**
+     * @brief 
+     * signalling server url
+     */
 	gchar* signalling_server;
 
-    /// disable ssl option, should only be set to true in development environment
-	gboolean disable_ssl;
-
-    /// <summary>
-    /// url of turn server
-    /// </summary>
+    /**
+     * @brief 
+     * turn server address
+     */
 	gchar* turn;
-
-    /// <summary>
-    /// state of signalling connection,
-    /// used to check if any state conflict is avilable
-    /// </summary>
-    SignallingServerState signalling_state;
-
-    /// <summary>
-    /// peer call state, include sdp and ice negotiation state
-    /// </summary>
-    PeerCallState peer_call_state;
 };
 
-static SignallingHub hub_init;
 
-void
-on_server_connected(SoupSession* session,
-    GAsyncResult* res,
-    RemoteApp* core);
+/**
+ * @brief 
+ * handle server connected signall
+ * @param session 
+ * @param res 
+ * @param core 
+ */
+void                on_server_connected             (SoupSession* session,
+                                                    GAsyncResult* res,
+                                                    RemoteApp* core);
 
 SignallingHub*
 signalling_hub_initialize(RemoteApp* core)
 {
-    hub_init.peer_call_state = PEER_CALL_NOT_READY;
-    hub_init.signalling_state = SIGNALLING_SERVER_NOT_READY;
-    hub_init.disable_ssl = FALSE;
-    return &hub_init;
+    SignallingHub* hub = malloc(sizeof(SignallingHub));
+    return hub;
 }
 
 
@@ -95,8 +80,6 @@ signalling_hub_setup(SignallingHub* hub,
 {
     hub->signalling_server = url;
     hub->turn = turn;
-    hub->SessionClientID= session_client_id;
-    hub->signalling_state = SIGNALLING_SERVER_READY;
 }
 
 
@@ -109,7 +92,6 @@ send_message_to_signalling_server(SignallingHub* signalling,
 {
     JsonObject* json_object = json_object_new();
     json_object_set_string_member(json_object, REQUEST_TYPE, request_type);
-    json_object_set_int_member(json_object, SUBJECT_ID, signalling->SessionClientID);
     json_object_set_string_member(json_object, CONTENT, content);
     json_object_set_string_member(json_object, RESULT, SESSION_ACCEPTED); 
     
@@ -120,24 +102,23 @@ send_message_to_signalling_server(SignallingHub* signalling,
 }
 
 
-
-void
+/**
+ * @brief 
+ * send ice candidate to worker node
+ * @param G_GNUC_UNUSED 
+ * @param mlineindex 
+ * @param candidate 
+ * @param G_GNUC_UNUSED 
+ */
+static void
 send_ice_candidate_message(GstElement* webrtc G_GNUC_UNUSED,
-    guint mlineindex,
-    gchar* candidate,
-    RemoteApp* core G_GNUC_UNUSED)
+                            guint mlineindex,
+                            gchar* candidate,
+                            RemoteApp* core G_GNUC_UNUSED)
 {
     gchar* text;
     JsonObject* ice, * msg;
-
     SignallingHub* hub = remote_app_get_signalling_hub(core);
-
-    //if (g_strcmp0(hub->peer_call_state, PEER_CALL_NEGOTIATING))
-    //{
-    //    GError error;
-    //    error.message = "State conflict";
-    //    remote_app_finalize(core, CORE_STATE_CONFLICT_EXIT, &error);
-    //}
 
     ice = json_object_new();
     json_object_set_string_member(ice, "candidate", candidate);
@@ -147,15 +128,18 @@ send_ice_candidate_message(GstElement* webrtc G_GNUC_UNUSED,
     text = get_string_from_json_object(msg);
     json_object_unref(msg);
 
-
-
     send_message_to_signalling_server(hub,OFFER_ICE,text);
     g_free(text);
 }
 
 
-
-void
+/**
+ * @brief 
+ * send session description to worker node
+ * @param core 
+ * @param desc 
+ */
+static void
 send_sdp_to_peer(RemoteApp* core,
     GstWebRTCSessionDescription* desc)
 {
@@ -164,12 +148,6 @@ send_sdp_to_peer(RemoteApp* core,
 
     SignallingHub* hub = remote_app_get_signalling_hub(core);
 
-    if (!hub->peer_call_state == PEER_CALL_NEGOTIATING) 
-    {
-        GError error;
-        error.message = "State conflict";
-        remote_app_finalize( core, CORE_STATE_CONFLICT_EXIT, &error);
-    }
     text = gst_sdp_message_as_text(desc->sdp);
     sdp = json_object_new();
 
@@ -198,9 +176,16 @@ send_sdp_to_peer(RemoteApp* core,
 }
 
 
-/* Offer created by our pipeline, to be sent to the peer */
+/**
+ * @brief 
+ * Offer created by our pipeline, to be sent to the peer 
+ * @param promise 
+ * @param core 
+ * @return * Offer, 
+ */
 void
-on_offer_created( GstPromise* promise, RemoteApp* core)
+on_offer_created( GstPromise* promise, 
+                  RemoteApp* core)
 {
     GstWebRTCSessionDescription* offer = NULL;
     const GstStructure* reply;
@@ -208,12 +193,6 @@ on_offer_created( GstPromise* promise, RemoteApp* core)
     Pipeline* pipe = remote_app_get_pipeline(core);
     SignallingHub* hub = remote_app_get_signalling_hub(core);
 
-    if (g_strcmp0(hub->peer_call_state, PEER_CALL_NEGOTIATING))
-    {
-        GError error;
-        error.message = "State conflict";
-        remote_app_finalize( core, CORE_STATE_CONFLICT_EXIT, &error);
-    }
 
     g_assert_cmphex(gst_promise_wait(promise), == , GST_PROMISE_RESULT_REPLIED);
 
@@ -233,9 +212,15 @@ on_offer_created( GstPromise* promise, RemoteApp* core)
     gst_webrtc_session_description_free(offer);
 }
 
-
-void
-on_negotiation_needed(GstElement* element, RemoteApp* core)
+/**
+ * @brief 
+ * on negotiation needed signal, emited by webrtcbin
+ * @param element 
+ * @param core 
+ */
+static void
+on_negotiation_needed(GstElement* element, 
+                      RemoteApp* core)
 {
     Pipeline* pipe = remote_app_get_pipeline(core);
     SignallingHub* signalling = remote_app_get_signalling_hub(core);
@@ -246,12 +231,16 @@ on_negotiation_needed(GstElement* element, RemoteApp* core)
 
     g_signal_emit_by_name(pipeline_get_webrtc_bin(pipe),
         "create-offer", NULL, promise);
-
-    signalling->peer_call_state = PEER_CALL_NEGOTIATING;
 }
 
 
-
+/**
+ * @brief 
+ * on ice gathering state notify signal, emit by webrtcbin
+ * @param webrtcbin 
+ * @param pspec 
+ * @param user_data 
+ */
 void
 on_ice_gathering_state_notify(GstElement* webrtcbin,
     GParamSpec* pspec,
@@ -275,41 +264,12 @@ on_ice_gathering_state_notify(GstElement* webrtcbin,
 }
 
 
-/// <summary>
-/// register with server by sending SLAVEREQUEST +{hub_id}
-/// </summary>
-/// <param name="core"></param>
-/// <returns></returns>
-gboolean
-register_with_server(RemoteApp* core)
-{
-    gchar* hello;
-    CoreState* state;
-    JsonObject* json_object = json_object_new();
-    SignallingHub* hub = remote_app_get_signalling_hub(core);
-
-    
-    if (g_strcmp0(hub->signalling_state, SIGNALLING_SERVER_CONNECTED) || 
-        (soup_websocket_connection_get_state(hub->connection) != SOUP_WEBSOCKET_STATE_OPEN))
-    {
-        GError error;
-        error.message = "State conflict";
-        remote_app_finalize( core, CORE_STATE_CONFLICT_EXIT, &error);  
-    }
-
-    //gchar* buffer = malloc(10);
-    //itoa(hub->SessionSlaveID, buffer, 10);
-    hub->signalling_state = SIGNALLING_SERVER_REGISTERING;
-    send_message_to_signalling_server(hub,CLIENT_REQUEST, SESSION_ACCEPTED);
-    return TRUE;
-}
-
-
-/// <summary>
-/// close
-/// </summary>
-/// <param name="G_GNUC_UNUSED"></param>
-/// <param name="G_GNUC_UNUSED"></param>
+/**
+ * @brief 
+ * handle close event from websocket 
+ * @param G_GNUC_UNUSED 
+ * @param G_GNUC_UNUSED 
+ */
 void
 on_server_closed(SoupWebsocketConnection* conn G_GNUC_UNUSED,
     RemoteApp* core G_GNUC_UNUSED)
@@ -319,8 +279,15 @@ on_server_closed(SoupWebsocketConnection* conn G_GNUC_UNUSED,
     hub->session = NULL;
 }
 
-/* Answer created by our pipeline, to be sent to the peer */
-void
+
+
+/**
+ * @brief 
+ * answer sdp offer
+ * @param promise 
+ * @param core 
+ */
+static void
 on_answer_created(GstPromise* promise,
     RemoteApp* core)
 {
@@ -349,7 +316,13 @@ on_answer_created(GstPromise* promise,
     gst_webrtc_session_description_free(answer);
 }
 
-void
+/**
+ * @brief 
+ * 
+ * @param promise 
+ * @param core 
+ */
+static void
 on_offer_set(GstPromise* promise,
             RemoteApp* core)
 {
@@ -364,8 +337,16 @@ on_offer_set(GstPromise* promise,
         "create-answer", NULL, promise);
 }
 
-void
-on_offer_received(RemoteApp* core, GstSDPMessage* sdp)
+
+/**
+ * @brief 
+ * handle sdp offer from worker node
+ * @param core 
+ * @param sdp 
+ */
+static void
+on_offer_received(RemoteApp* core, 
+                  GstSDPMessage* sdp)
 {
     GstWebRTCSessionDescription* offer = NULL;
     GstPromise* promise;
@@ -389,15 +370,6 @@ on_offer_received(RemoteApp* core, GstSDPMessage* sdp)
 
 
 
-void
-remote_app_logger(SoupLogger* logger,
-            SoupLoggerLogLevel  level,
-            char                direction,
-            const char         *data,
-            gpointer            user_data)
-{
-
-}
 
 
 
@@ -405,13 +377,11 @@ remote_app_logger(SoupLogger* logger,
 
 
 
-
-/// <summary>
-/// *Connect to the signalling server. 
-///  This is the entrypoint for everything else.
-/// 
-/// </summary>
-/// <param name="core"></param>
+/**
+ * @brief 
+ * initialize websocket conneciton with signalling server
+ * @param core 
+ */
 void
 connect_to_websocket_signalling_server_async(RemoteApp* core)
 {
@@ -428,46 +398,29 @@ connect_to_websocket_signalling_server_async(RemoteApp* core)
 
 
     hub->session =
-        soup_session_new_with_options(SOUP_SESSION_SSL_STRICT, !hub->disable_ssl,
+        soup_session_new_with_options(SOUP_SESSION_SSL_STRICT, TRUE,
             SOUP_SESSION_SSL_USE_SYSTEM_CA_FILE, TRUE,
             SOUP_SESSION_HTTPS_ALIASES, https_aliases, NULL);
 
-    logger = soup_logger_new(SOUP_LOGGER_LOG_BODY, -1);
-    soup_session_add_feature(hub->session, SOUP_SESSION_FEATURE(logger));
     g_object_unref(logger);
 
-
-    soup_logger_set_printer(logger,remote_app_logger,NULL,NULL);
-
     message = soup_message_new(SOUP_METHOD_GET, hub->signalling_server);
-
-
-    hub->signalling_state = SIGNALLING_SERVER_CONNECTING;
     soup_session_websocket_connect_async(hub->session,
         message, NULL, NULL, NULL,
         (GAsyncReadyCallback)on_server_connected, core);
 }
 
 
+/**
+ * @brief 
+ * handle registering message from 
+ * @param core 
+ */
 static void
 on_registering_message(RemoteApp* core)
 {
     SignallingHub* signalling = remote_app_get_signalling_hub(core);
 
-    if (g_strcmp0(signalling->signalling_state, SIGNALLING_SERVER_REGISTERING))
-    {
-        GError error;
-        error.message = "State conflict";
-        remote_app_finalize( core, CORE_STATE_CONFLICT_EXIT, &error);
-    }
-    if (g_strcmp0( signalling->signalling_state , SIGNALLING_SERVER_REGISTERING))
-    {
-        GError error;
-        error.message = "State conflict";
-        remote_app_finalize( core, CORE_STATE_CONFLICT_EXIT, &error);
-    }
-    signalling->signalling_state = SIGNALLING_SERVER_REGISTER_DONE;
-    signalling->peer_call_state = PEER_CALL_READY;
     /* Call has been setup by the server, now we can start negotiation */
 
     // send sdp request to slave
@@ -481,6 +434,12 @@ on_registering_message(RemoteApp* core)
     send_message_to_signalling_server(signalling,OFFER_SDP,text);
 }
 
+/**
+ * @brief 
+ * handle ice message from worker node
+ * @param text 
+ * @param core 
+ */
 static void
 on_ice_exchange(gchar* text,RemoteApp* core)
 {
@@ -502,6 +461,14 @@ on_ice_exchange(gchar* text,RemoteApp* core)
     g_object_unref(parser);
 }
 
+
+
+/**
+ * @brief 
+ * handle sdp message from worker node
+ * @param data 
+ * @param core 
+ */
 static void
 on_sdp_exchange(gchar* data, 
                 RemoteApp* core)
@@ -558,14 +525,15 @@ on_sdp_exchange(gchar* data,
     g_object_unref(parser);
 }
 
-/// <summary>
-/// callback function for signalling server message
-/// </summary>
-/// <param name="conn"></param>
-/// <param name="type"></param>
-/// <param name="message"></param>
-/// <param name="core"></param>
-void
+/**
+ * @brief 
+ * handle message from signalling server
+ * @param conn 
+ * @param type 
+ * @param message message string
+ * @param core remteo app
+ */
+static void
 on_server_message(SoupWebsocketConnection* conn,
     SoupWebsocketDataType type,
     GBytes* message,
@@ -631,8 +599,7 @@ on_server_message(SoupWebsocketConnection* conn,
     g_object_unref(parser);
 }
 
-
-void
+static void
 on_server_connected(SoupSession* session,
     GAsyncResult* res,
     RemoteApp* core)
@@ -640,7 +607,6 @@ on_server_connected(SoupSession* session,
     GError* error = NULL;
     SignallingHub* hub = remote_app_get_signalling_hub(core);
 
-    if (g_strcmp0(hub->signalling_state, SIGNALLING_SERVER_CONNECTING))  {  return;  }
     
     hub->connection = soup_session_websocket_connect_finish(session, res, &error);
     if (!error == NULL || hub->connection == NULL) 
@@ -648,12 +614,10 @@ on_server_connected(SoupSession* session,
         remote_app_finalize(core, SIGNALLING_SERVER_CONNECTION_ERROR_EXIT,error);
     }
 
-    hub->signalling_state = SIGNALLING_SERVER_CONNECTED;
     g_signal_connect(hub->connection, "closed", G_CALLBACK(on_server_closed), core);
     g_signal_connect(hub->connection, "message", G_CALLBACK(on_server_message), core);
 
     // register to server after connect to signalling server
-    register_with_server(core);
     return;
 }
 
@@ -670,39 +634,35 @@ signalling_close(SignallingHub* hub)
     }
 }
 
+void
+connect_signalling_handler(RemoteApp* core)
+{
+    Pipeline* pipe = remote_app_get_pipeline(core);
+    SignallingHub* hub = remote_app_get_signalling_hub(core);
+    GstElement* webrtcbin = pipeline_get_webrtc_bin(pipe);
+
+    /* Add stun server */
+    g_object_set(webrtcbin, "stun-server", 
+       "stun://stun.thinkmay.net:3478", NULL);
+
+    g_object_set(webrtcbin, "turn-server", 
+        signalling_hub_get_turn_server(hub), NULL);
 
 
-/*START get-set function*/
+    /* This is the gstwebrtc entry point where we create the offer and so on. It
+     * will be called when the pipeline goes to PLAYING. */
+    g_signal_connect(webrtcbin, "on-negotiation-needed",
+        G_CALLBACK(on_negotiation_needed), core);
+    g_signal_connect(webrtcbin, "on-ice-candidate",
+        G_CALLBACK(send_ice_candidate_message), core);
+    g_signal_connect(webrtcbin, "notify::ice-gathering-state",
+        G_CALLBACK(on_ice_gathering_state_notify), core);
+}
+
+
+
 gchar* 
 signalling_hub_get_turn_server(SignallingHub* hub)
 {
     return hub->turn;
-}
-
-
-
-SignallingServerState 
-signalling_hub_get_signalling_state(SignallingHub* hub)
-{
-    return hub->signalling_state;
-}
-
-PeerCallState
-signalling_hub_get_peer_call_state(SignallingHub* hub)
-{
-    return hub->peer_call_state;
-}
-
-void
-signalling_hub_set_signalling_state(SignallingHub* hub,
-                                    SignallingServerState state)
-{
-    hub->signalling_state = state;
-}
-
-void
-signalling_hub_set_peer_call_state(SignallingHub* hub,
-                                   PeerCallState state)
-{
-    hub->peer_call_state = state;
 }

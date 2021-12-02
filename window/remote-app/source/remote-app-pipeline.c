@@ -17,13 +17,12 @@
 #include <gst/base/gstbasesink.h>
 
 
-#define GST_DEBUG_DUMP_DOT_DIR CURRENT_DIR
 
 
-/// <summary>
-/// gstreamer video element enumaration,
-/// the order of element in enum must follow the 
-/// </summary>
+/**
+ * @brief 
+ * naming of gstelement
+ */
 enum
 {
     /*screen capture source*/
@@ -39,10 +38,10 @@ enum
     VIDEO_ELEMENT_LAST
 };
 
-/// <summary>
-/// gstreamer audio element enumaration,
-/// the order of element in enum must follow the 
-/// </summary>
+/**
+ * @brief 
+ * naming of gstelement
+ */
 enum
 {
     /*audio capture source*/
@@ -158,7 +157,6 @@ handle_media_stream (GstPad * pad,
 #ifndef G_OS_WIN32
       setup_video_sink_navigator(core);
 #endif
-
     }
     
     qpad = gst_element_get_static_pad (q, "sink");
@@ -239,36 +237,7 @@ on_incoming_stream (GstElement * webrtc,
 
 
 
-/// <summary>
-/// connect webrtc bin to ice and sdp signal handler
-/// </summary>
-/// <param name="core"></param>
-static void
-connect_signalling_handler(RemoteApp* core)
-{
-    Pipeline* pipe = remote_app_get_pipeline(core);
-    SignallingHub* hub = remote_app_get_signalling_hub(core);
 
-    /* Add stun server */
-    g_object_set(pipe->webrtcbin, "stun-server", 
-       "stun://stun.thinkmay.net:3478", NULL);
-
-    g_object_set(pipe->webrtcbin, "turn-server", 
-        signalling_hub_get_turn_server(hub), NULL);
-
-
-    /* This is the gstwebrtc entry point where we create the offer and so on. It
-     * will be called when the pipeline goes to PLAYING. */
-    g_signal_connect(pipe->webrtcbin, "on-negotiation-needed",
-        G_CALLBACK(on_negotiation_needed), core);
-    g_signal_connect(pipe->webrtcbin, "on-ice-candidate",
-        G_CALLBACK(send_ice_candidate_message), core);
-    g_signal_connect(pipe->webrtcbin, "notify::ice-gathering-state",
-        G_CALLBACK(on_ice_gathering_state_notify), core);
-    /* Incoming streams will be exposed via this signal */
-    g_signal_connect(pipe->webrtcbin, "pad-added",
-        G_CALLBACK (on_incoming_stream),core);
-}
 
 
 
@@ -280,9 +249,12 @@ handle_event(GstPad* pad,
             GstEvent* event)
 {
     switch (GST_EVENT_TYPE (event)) {
+
+#ifndef G_OS_WIN32
       case GST_EVENT_NAVIGATION:
         handle_navigator(event,pipeline_singleton.core);
         break;
+#endif
       default:
         gst_pad_event_default(pad, parent,event);
         break;
@@ -319,14 +291,15 @@ setup_pipeline(RemoteApp* core)
     pipe->webrtcbin =  gst_bin_get_by_name(GST_BIN(pipe->pipeline),"webrtcbin");
     g_object_set(pipe->webrtcbin, "latency", 0, NULL);
 
-    
+    /* Incoming streams will be exposed via this signal */
+    g_signal_connect(pipe->webrtcbin, "pad-added",
+        G_CALLBACK (on_incoming_stream),core);
 
     gst_element_change_state(pipe->pipeline, GST_STATE_READY);
     connect_signalling_handler(core);
     connect_data_channel_signals(core);
     start_pipeline(core);
 
-    signalling_hub_set_peer_call_state(signalling, PEER_CALL_DONE);
 }
 
 
