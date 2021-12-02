@@ -25,7 +25,9 @@
 #include <message-form.h>
 #include <module-code.h>
 #include <gst/base/gstbasesink.h>
+#include <libsoup/soup.h>
 
+#define SESSION_INFOR_URL "https://host.thinkmay.net/Session/Setting"
 
 struct _RemoteApp
 {
@@ -55,44 +57,67 @@ struct _RemoteApp
  * @param video_codec 
  */
 static void
-remote_app_setup_session(RemoteApp* self, 
-						gint session_id, 
-						gchar* signalling_url,
-						gchar* turn, 
-						gchar* audio_codec, 
-						gchar* video_codec)
-{
-	Codec audio = 0,video = 0;
-
-	GError* error = NULL;
-	if(!g_strcmp0(audio_codec,"aac"))	
-		audio = AAC_ENC;
-	else if(!g_strcmp0(audio_codec,"opus"))
-		audio = OPUS_ENC;
-
-
-	if(!g_strcmp0(video_codec,"h264"))
-		video = CODEC_H264;
-	if(!g_strcmp0(video_codec,"h265"))
-		video = CODEC_H265;
-	if(!g_strcmp0(video_codec,"vp9"))
-		video = CODEC_VP9;
+remote_app_setup_session(RemoteApp* self, gchar* remote_token)
+{    
+	const char* http_aliases[] = { "https", NULL };
+	SoupSession* session = soup_session_new_with_options(
+			SOUP_SESSION_SSL_STRICT, TRUE,
+			SOUP_SESSION_SSL_USE_SYSTEM_CA_FILE, TRUE,
+			SOUP_SESSION_HTTPS_ALIASES, http_aliases, NULL);
+	Codec audio_codec = 0,video_codec = 0;
+	gchar* signalling_url;
+	JsonArray* STUNlist;
+	GString* turn = g_string_new("turn://");
 	
-	signalling_hub_setup(self->signalling,turn,signalling_url,session_id);
-	qoe_setup(self->qoe,audio,video);
+	SoupMessage* infor_message = soup_message_new(SOUP_METHOD_GET,SESSION_INFOR_URL);
+	soup_message_headers_append(infor_message->request_headers,"Authentication",remote_token);
+
+	soup_session_send_message(session,infor_message);
 
 
+	if(infor_message->status_code == SOUP_STATUS_OK)
+	{
+		GError* error = NULL;
+		JsonParser* parser = json_parser_new();
+		JsonObject* json_infor = get_json_object_from_string(infor_message->response_body->data,error,parser);
+		if (error)
+			remote_app_finalize(self,0,NULL);
+		
+		
+		
+		audio_codec = json_object_get_int_member(json_infor,"AudioCodec");
+		video_codec = json_object_get_int_member(json_infor,"VideoCodec");
+		gchar* turnIP = json_object_get_int_member(json_infor,"turnIP");
+		gchar* turnUser = json_object_get_int_member(json_infor,"turnUser");
+		gchar* turnPassword = json_object_get_int_member(json_infor,"turnPassword");
+		signalling_url = json_object_get_string_member(json_infor,"SignallingUrl");
+
+		g_string_append(turn,turnUser);
+		g_string_append(turn,":");
+		g_string_append(turn,turnPassword);
+		g_string_append(turn,"@");
+		g_string_append(turn,turnIP);
+		g_string_append(turn,":3478");
+
+
+		STUNlist = json_object_get_array_member(json_infor,"STUNlist");
+	}
+	else
+	{
+		remote_app_finalize(self,0,NULL);
+	}
+	
+
+
+	signalling_hub_setup(self->signalling, g_string_free(turn,FALSE),signalling_url);
+	qoe_setup(self->qoe,audio_codec,video_codec);
 }
 
 
 
 
 RemoteApp*
-remote_app_initialize(gint session_id,
-					  gchar* signalling_url,
-					  gchar* turn,
-					  gchar* audio_codec,
-					  gchar* video_codec)
+remote_app_initialize(gchar* remote_token)
 {
 	RemoteApp* app= malloc(sizeof(RemoteApp));
 	app->hub =				webrtchub_initialize();
@@ -102,17 +127,12 @@ remote_app_initialize(gint session_id,
 	app->pipe =				pipeline_initialize(app);
 	app->loop =				g_main_loop_new(NULL, FALSE);
 	 
-	remote_app_setup_session(app, 
-							session_id, 
-							signalling_url, 
-							turn, 
-							audio_codec, 
-							video_codec);
+	remote_app_setup_session(app, remote_token);
 
 
 	setup_pipeline(app);
 
-	connect_to_websocket_signalling_server_async(app);
+	signalling_connect(app);
 	g_main_loop_run(app->loop);
 	return app;	
 }
@@ -144,7 +164,8 @@ remote_app_finalize(RemoteApp* self,
 {
 	if(error)
 		g_print(error->message);
-	// gui_terminate(self->gui);
+
+	signalling_close(self->signalling);
 	ExitProcess(exit_code);
 }
 

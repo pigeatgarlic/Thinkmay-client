@@ -23,19 +23,11 @@
 
 /**
  * @brief 
- * 
- * @param session_id 
- * @param signalling_url 
- * @param turn 
- * @param audio_codec 
- * @param video_codec 
+ * initialize remote session
+ * @param remote_token 
  * @return RemoteApp* 
  */
-RemoteApp*		remote_app_initialize				(gint session_id,
-													gchar* signalling_url,
-													gchar* turn,
-													gchar* audio_codec,
-													gchar* video_codec);
+RemoteApp*		remote_app_initialize				(gchar* remote_token);
 
 
 /**

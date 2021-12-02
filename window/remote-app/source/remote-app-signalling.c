@@ -49,6 +49,12 @@ struct _SignallingHub
      * turn server address
      */
 	gchar* turn;
+
+    /**
+     * @brief 
+     * remote app token
+     */
+    gchar* remote_token;
 };
 
 
@@ -75,8 +81,7 @@ signalling_hub_initialize(RemoteApp* core)
 void
 signalling_hub_setup(SignallingHub* hub, 
                      gchar* turn,
-                     gchar* url,
-                     gint session_client_id)
+                     gchar* url)
 {
     hub->signalling_server = url;
     hub->turn = turn;
@@ -277,6 +282,7 @@ on_server_closed(SoupWebsocketConnection* conn G_GNUC_UNUSED,
     SignallingHub* hub = remote_app_get_signalling_hub(core);
     hub->connection = NULL;
     hub->session = NULL;
+    remote_app_finalize(core,0,NULL);
 }
 
 
@@ -377,23 +383,18 @@ on_offer_received(RemoteApp* core,
 
 
 
-/**
- * @brief 
- * initialize websocket conneciton with signalling server
- * @param core 
- */
 void
-connect_to_websocket_signalling_server_async(RemoteApp* core)
+signalling_connect(RemoteApp* core)
 {
     SoupLogger* logger;
     SoupMessage* message;
-
-    const char* https_aliases[] = { "ws", NULL };
+    const char* https_aliases[] = { "wss", NULL };
     JsonObject* json_object;
-
     SignallingHub* hub = remote_app_get_signalling_hub(core);
-
-    gchar* text;
+    GString* string = g_string_new(hub->signalling_server);
+    g_string_append(string,"?token=");
+    g_string_append(string,hub->remote_token);
+    gchar* url = g_string_free(string,FALSE);
 
 
 
@@ -402,37 +403,13 @@ connect_to_websocket_signalling_server_async(RemoteApp* core)
             SOUP_SESSION_SSL_USE_SYSTEM_CA_FILE, TRUE,
             SOUP_SESSION_HTTPS_ALIASES, https_aliases, NULL);
 
-    g_object_unref(logger);
-
-    message = soup_message_new(SOUP_METHOD_GET, hub->signalling_server);
+    message = soup_message_new(SOUP_METHOD_GET, url);
     soup_session_websocket_connect_async(hub->session,
         message, NULL, NULL, NULL,
         (GAsyncReadyCallback)on_server_connected, core);
 }
 
 
-/**
- * @brief 
- * handle registering message from 
- * @param core 
- */
-static void
-on_registering_message(RemoteApp* core)
-{
-    SignallingHub* signalling = remote_app_get_signalling_hub(core);
-
-    /* Call has been setup by the server, now we can start negotiation */
-
-    // send sdp request to slave
-    JsonObject* object = json_object_new();
-    json_object_set_string_member(object,"type","request");
-
-    JsonObject* message = json_object_new();
-    json_object_set_object_member(message,"sdp",object);
-    gchar* text= get_string_from_json_object(message);
-
-    send_message_to_signalling_server(signalling,OFFER_SDP,text);
-}
 
 /**
  * @brief 
@@ -566,39 +543,29 @@ on_server_message(SoupWebsocketConnection* conn,
 	if(!error == NULL || object == NULL) {return;}
 
     gchar* RequestType =    json_object_get_string_member(object, "RequestType");
-    gint SubjectId =        json_object_get_int_member(object, "SubjectId");
     gchar* Content =        json_object_get_string_member(object, "Content");
-    gchar* Result =         json_object_get_string_member(object, "Result");
     g_print(Content);
+    g_print("\n");
 
     
-    if (!g_strcmp0(Result, "SESSION_REJECTED") ||
-        !g_strcmp0(Result, "SESSION_TIMEOUT"))
-    {
-        GError error;
-        error.message = "Session has been rejected, this may due to security attack or signalling failure";
-        remote_app_finalize( core, CORE_STATE_CONFLICT_EXIT, &error);
-    }
 
-    /*this is websocket message with signalling server and has nothing to do with 
-    * json message format use to communicate with other module
-    */
-    if (!g_strcmp0(RequestType , "CLIENTREQUEST"))
-    {
-        on_registering_message(core);
-    }
-    else if (!g_strcmp0(RequestType, "OFFER_SDP"))
-    {
+    if (!g_strcmp0(RequestType, "OFFER_SDP")) {
         on_sdp_exchange(Content, core);
-    }
-    else if (!g_strcmp0(RequestType, "OFFER_ICE"))
-    {
+    } else if (!g_strcmp0(RequestType, "OFFER_ICE")) {
         on_ice_exchange(Content, core);
     }
     g_free(text);
     g_object_unref(parser);
 }
 
+
+/**
+ * @brief 
+ * handle server connection done,
+ * @param session 
+ * @param res 
+ * @param core 
+ */
 static void
 on_server_connected(SoupSession* session,
     GAsyncResult* res,
@@ -616,8 +583,6 @@ on_server_connected(SoupSession* session,
 
     g_signal_connect(hub->connection, "closed", G_CALLBACK(on_server_closed), core);
     g_signal_connect(hub->connection, "message", G_CALLBACK(on_server_message), core);
-
-    // register to server after connect to signalling server
     return;
 }
 

@@ -36,7 +36,7 @@ SignallingHub*                  signalling_hub_initialize                       
  * connect with signalling server using remote token
  * @param core 
  */
-void                            connect_to_websocket_signalling_server_async            (RemoteApp* core);
+void                            signalling_connect                                      (RemoteApp* core);
 
 
 /**
@@ -57,8 +57,7 @@ gboolean                        register_with_server                            
  */
 void                            signalling_hub_setup                                    (SignallingHub* hub,
                                                                                         gchar* turn, 
-                                                                                        gchar* url,
-                                                                                        gint session_slave_id);
+                                                                                        gchar* url);
 
 /**
  * @brief 

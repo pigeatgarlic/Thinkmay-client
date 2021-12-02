@@ -18,29 +18,15 @@
 #define GST_USE_UNSTABLE_API
 #endif
 
-static gchar signalling_url[50] = "wss://host.thinkmay.net/Handshake";
-static gchar turn[100] = "turn://thinkmaycoturn:thinkmaycoturn_password@turn:stun.thinkmay.net:3478";
-static gint  session_id = 0;
-static gchar video_codec[50] = {0};
-static gchar audio_codec[50] = {0}; 
-static gchar connection_string[200] = {0};
+static gchar connection_string[500] = {0};
+static gchar remote_token[500] = {0};
 
 
 #define GST_DEBUG               4
 
 static GOptionEntry entries[] = {
-    {"sessionid", 0, 0, G_OPTION_ARG_INT, &session_id,
-        "String ID of the peer to connect to", "ID"},
-    {"signalling", 0, 0, G_OPTION_ARG_STRING, &signalling_url,
-        "Signalling server to connect to", "URL"},
-    {"turn", 0, 0, G_OPTION_ARG_STRING, &turn,
-        "Request that the peer generate the offer and we'll answer", "URL"},
-    {"audiocodec", 0, 0, G_OPTION_ARG_STRING, &audio_codec,
-        "audio codec use for decode bin", "codec"},
-    {"videocodec", 0, 0, G_OPTION_ARG_STRING, &video_codec,
-        "video codec use for decode bin", "codec"},
-    {"connection", 0, 0, G_OPTION_ARG_STRING, &connection_string,
-        "connection ", "codec"},
+    {"url", 0, 0, G_OPTION_ARG_STRING, &connection_string,
+        "url run by electron app to initialize remote app", "codec"},
     {NULL},
 };
 
@@ -116,35 +102,16 @@ main(int argc, char* argv[])
             if(*(array_param))
             {
                 gchar** parameter = split(*(array_param),'=');
-                if(!g_strcmp0(*(parameter ),"sessionid"))
+                if(!g_strcmp0(*(parameter ),"token"))
                 {
-                    gint id = strtol(*(parameter +1),NULL,10);
-                    session_id = id;
-                }
-                else if(!g_strcmp0(*(parameter ),"signalling"))
-                {
-                    memcpy(signalling_url,*(parameter +1),strlen(*(parameter +1)));
-                }
-                else if(!g_strcmp0(*(parameter ),"turn"))
-                {
-                    memcpy(turn,*(parameter +1),strlen(*(parameter +1)));
-                }
-                else if(!g_strcmp0(*(parameter ),"videocodec"))
-                {
-                    memcpy(video_codec,*(parameter +1),strlen(*(parameter +1)));
+                    memcpy(remote_token,*(parameter +1),strlen(*(parameter +1)));
                 }
             }
         }
         while(*(array_param++));
     }
 
-    g_print("Starting connnection with session client id %d, videocodec %s , signalling server url %s\n",session_id,video_codec,signalling_url);
-
-    remote_app_initialize(session_id,
-                    signalling_url, 
-                    turn, 
-                    audio_codec, 
-                    video_codec);
+    remote_app_initialize(remote_token);
     return 0;
 }
 
