@@ -49,6 +49,7 @@ enum
     WASAPI_SINK,
 
     AUDIO_CONVERT,
+    AUDIO_RESAMPLE,
 
     /*audio encoder*/
     OPUS_DECODER,
@@ -56,6 +57,7 @@ enum
 
     /*rtp packetize and queue*/
     AUDIO_DEPAYLOAD,
+    AUDIO_SINK,
 
     AUDIO_ELEMENT_LAST
 };
@@ -63,8 +65,6 @@ enum
 
 struct _Pipeline
 {
-    RemoteApp* core;
-
     GstElement* pipeline;
     GstElement* webrtcbin;
 
@@ -79,15 +79,14 @@ struct _Pipeline
 void
 setup_video_sink_navigator(RemoteApp* core);
 
-static Pipeline pipeline_singleton = {0};
 
 
 Pipeline*
 pipeline_initialize(RemoteApp* core)
 {
-    memset(&pipeline_singleton,0,sizeof(pipeline_singleton));
-    pipeline_singleton.core = core;
-    return &pipeline_singleton;
+    Pipeline* pipeline = malloc(sizeof(Pipeline));
+    memset(pipeline,0,sizeof(Pipeline));
+    return pipeline;
 }
 
 static gboolean
@@ -109,127 +108,151 @@ start_pipeline(RemoteApp* core)
 }
 
 
-#define DIRECTX_PAD "video/x-raw(memory:D3D11Memory)"
-#define RTP_CAPS_OPUS "application/x-rtp,media=audio,payload=96,encoding-name="
-#define RTP_CAPS_VIDEO "application/x-rtp,media=video,payload=97,encoding-name="
 
 static void
-handle_media_stream (GstPad * pad, 
-                    GstElement * pipe, 
-                    const char *convert_name,
-                    const char *sink_name,
-                    RemoteApp* core)
+handle_audio_stream (GstPad * pad, 
+                     RemoteApp* core)
 {
-    GstPad *qpad;
-    GstElement *q, *conv, *resample, *sink;
-    GstPadLinkReturn ret;
     Pipeline* pipeline = remote_app_get_pipeline(core);
 
-    g_print ("Trying to handle stream with %s ! %s", convert_name, sink_name);
+    GstElement* queue =                      gst_element_factory_make ("queue", NULL);
+    pipeline->audio_element[AUDIO_CONVERT] = gst_element_factory_make ("audioconvert", NULL);
+    pipeline->audio_element[AUDIO_RESAMPLE]= gst_element_factory_make ("audioresample", NULL);
+    pipeline->audio_element[AUDIO_SINK] =    gst_element_factory_make ("autoaudiosink", NULL);
 
-    q = gst_element_factory_make ("queue", NULL);
-    g_assert_nonnull (q);
-    conv = gst_element_factory_make (convert_name, NULL);
-    g_assert_nonnull (conv);
-    sink = gst_element_factory_make (sink_name, NULL);
-    g_assert_nonnull (sink);
+    /* Might also need to resample, so add it just in case.
+    * Will be a no-op if it's not required. */
+    gst_bin_add_many (GST_BIN (pipeline->pipeline), queue, 
+        pipeline->audio_element[AUDIO_CONVERT], 
+        pipeline->audio_element[AUDIO_RESAMPLE], 
+        pipeline->audio_element[AUDIO_SINK], NULL);
 
-    if (g_strcmp0 (convert_name, "audioconvert") == 0) {
-      /* Might also need to resample, so add it just in case.
-      * Will be a no-op if it's not required. */
-      resample = gst_element_factory_make ("audioresample", NULL);
-      g_assert_nonnull (resample);
-      gst_bin_add_many (GST_BIN (pipe), q, conv, resample, sink, NULL);
-      gst_element_sync_state_with_parent (q);
-      gst_element_sync_state_with_parent (conv);
-      gst_element_sync_state_with_parent (resample);
-      gst_element_sync_state_with_parent (sink);    
-      gst_element_link_many (q, conv, resample, sink, NULL);
-    } else {
-      gst_bin_add_many (GST_BIN (pipe), q, conv, sink, NULL);
-      gst_element_sync_state_with_parent (q);
-      gst_element_sync_state_with_parent (conv);
-      gst_element_sync_state_with_parent (sink);
-      gst_element_link_many (q, conv, sink, NULL);
-      pipeline->video_element[VIDEO_SINK] = sink;
-      pipeline->video_element[VIDEO_CONVERT] = conv;
+    gst_element_sync_state_with_parent (queue);
+    gst_element_sync_state_with_parent (pipeline->audio_element[AUDIO_CONVERT]);
+    gst_element_sync_state_with_parent (pipeline->audio_element[AUDIO_RESAMPLE]);
+    gst_element_sync_state_with_parent (pipeline->audio_element[AUDIO_SINK]);
 
-#ifndef G_OS_WIN32
-      setup_video_sink_navigator(core);
-#endif
-    }
-    
-    qpad = gst_element_get_static_pad (q, "sink");
+    gst_element_link_many (queue, 
+        pipeline->audio_element[AUDIO_CONVERT], 
+        pipeline->audio_element[AUDIO_RESAMPLE],
+        pipeline->audio_element[AUDIO_SINK], NULL);
 
-    ret = gst_pad_link (pad, qpad);
+    GstPad* queue_pad = gst_element_get_static_pad (queue, "sink");
+    GstPadLinkReturn ret = gst_pad_link (pad, queue_pad);
+
     g_assert_cmphex (ret, ==, GST_PAD_LINK_OK);
 }
 
 static void
-on_incoming_decodebin_stream (GstElement * decodebin, 
-                              GstPad * pad,
-                              RemoteApp* core)
+handle_video_stream (GstPad * pad, 
+                     RemoteApp* core)
 {
     Pipeline* pipeline = remote_app_get_pipeline(core);
-    GstElement* pipe = pipeline->pipeline;
-    GstCaps *caps;
-    const gchar *name;
 
-    if (!gst_pad_has_current_caps (pad)) {
-      g_printerr ("Pad '%s' has no caps, can't do anything, ignoring\n",
-          GST_PAD_NAME (pad));
-      return;
+    GstElement* queue = gst_element_factory_make ("queue", NULL);
+    pipeline->video_element[VIDEO_CONVERT] = gst_element_factory_make ("videoconvert", NULL);
+    pipeline->video_element[VIDEO_SINK] = gst_element_factory_make (DEFAULT_VIDEO_SINK, NULL);
+
+    gst_bin_add_many (GST_BIN (pipeline->pipeline), queue, 
+        pipeline->video_element[VIDEO_CONVERT], 
+        pipeline->video_element[VIDEO_SINK], NULL);
+
+    gst_element_sync_state_with_parent (queue);
+    gst_element_sync_state_with_parent (pipeline->video_element[VIDEO_CONVERT]);
+    gst_element_sync_state_with_parent (pipeline->video_element[VIDEO_SINK]);
+
+    gst_element_link_many (queue, 
+        pipeline->video_element[VIDEO_CONVERT], 
+        pipeline->video_element[VIDEO_SINK], NULL);
+
+#ifndef G_OS_WIN32
+    setup_video_sink_navigator(core);
+#endif
+    
+    GstPad* queue_pad = gst_element_get_static_pad (queue, "sink");
+    GstPadLinkReturn ret = gst_pad_link (pad, queue_pad);
+
+    g_assert_cmphex (ret, ==, GST_PAD_LINK_OK);
+}
+
+
+
+/**
+ * @brief 
+ * 
+ * @param decodebin 
+ * @param pad 
+ * @param data 
+ */
+static void
+on_incoming_decodebin_stream (GstElement * decodebin, 
+                              GstPad * pad,
+                              gpointer data)
+{
+    RemoteApp* core = (RemoteApp*)data;
+    Pipeline* pipeline = remote_app_get_pipeline(core);
+
+    if (!gst_pad_has_current_caps (pad)) 
+    {
+        g_printerr ("Pad '%s' has no caps, can't do anything, ignoring\n",
+            GST_PAD_NAME (pad));
+        return;
     }
 
-    caps = gst_pad_get_current_caps (pad);
-    name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
+    GstCaps* caps = gst_pad_get_current_caps (pad);
+    gchar*   name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
 
-    if (g_str_has_prefix (name, "video")) {
-      handle_media_stream (pad, pipe, "videoconvert", DEFAULT_VIDEO_SINK,core);
-    } else if (g_str_has_prefix (name, "audio")) {
-      handle_media_stream (pad, pipe, "audioconvert", "autoaudiosink",core);
-    } else {
+    if (g_str_has_prefix (name, "video")) 
+    {
+        handle_video_stream(pad, core);
+    } 
+    else if (g_str_has_prefix (name, "audio")) 
+    {
+        handle_audio_stream(pad, core);
+    } 
+    else 
+    {
       g_printerr ("Unknown pad %s, ignoring", GST_PAD_NAME (pad));
     }
 }
 
+
+
+/**
+ * @brief 
+ * 
+ * @param webrtc 
+ * @param webrtcbin_pad 
+ * @param data 
+ */
 static void
 on_incoming_stream (GstElement * webrtc, 
-                    GstPad * pad, 
-                    RemoteApp * core)
+                    GstPad * webrtcbin_pad, 
+                    gpointer data)
 {
-    Pipeline* pipeline = remote_app_get_pipeline(core);
-    GstElement* pipe = pipeline->pipeline;
-
-    GstCaps* caps;
-    const gchar* name ,* encoding;
-    GstElement *decodebin;
-    GstPad *sinkpad;
-    
-    caps = gst_pad_get_current_caps(pad);
-    encoding = gst_structure_get_string(gst_caps_get_structure(caps, 0), "encoding-name");
-    name = gst_structure_get_name(gst_caps_get_structure(caps, 0));
-
-    if (GST_PAD_DIRECTION (pad) != GST_PAD_SRC)
+    RemoteApp* core = (RemoteApp*)data;
+    if (GST_PAD_DIRECTION (webrtcbin_pad) != GST_PAD_SRC)
       return;
 
-
-    decodebin = gst_element_factory_make ("decodebin", NULL);
-  //   g_object_set(decodebin, "connection-speed", 1000000,NULL);
+    Pipeline* pipeline = remote_app_get_pipeline(core);
+    GstElement* pipe = pipeline->pipeline;
     
-  //     // Create a 2nd transceiver for the receive only video stream
-  //   GstCaps* video_caps =
-  //     gst_caps_from_string
-  //     ("application/x-rtp,media=video,encoding-name=H264,payload=96,clock-rate=90000");
-  //   g_object_set(decodebin,"sink-caps",video_caps,NULL);
-    g_signal_connect (decodebin, "pad-added",
-        G_CALLBACK (on_incoming_decodebin_stream), core);
-    gst_bin_add (GST_BIN (pipe), decodebin);
-    gst_element_sync_state_with_parent (decodebin);
+    GstCaps* caps = gst_pad_get_current_caps(webrtcbin_pad);
+    gchar* encoding = gst_structure_get_string(gst_caps_get_structure(caps, 0), "encoding-name");
+    gchar* name = gst_structure_get_name(gst_caps_get_structure(caps, 0));
 
-    sinkpad = gst_element_get_static_pad (decodebin, "sink");
-    gst_pad_link (pad, sinkpad);
-    gst_object_unref (sinkpad);
+    g_print("handling media type %s with encoding %s",name,encoding);
+
+    pipeline->video_element[VIDEO_DECODER] = gst_element_factory_make ("decodebin", NULL);
+    g_signal_connect (pipeline->video_element[VIDEO_DECODER], "pad-added",
+        G_CALLBACK (on_incoming_decodebin_stream), core);
+    gst_bin_add (GST_BIN (pipe), pipeline->video_element[VIDEO_DECODER]);
+
+    gst_element_sync_state_with_parent (pipeline->video_element[VIDEO_DECODER]);
+
+    pipeline->video_caps[VIDEO_DECODER] = gst_element_get_static_pad (pipeline->video_element[VIDEO_DECODER], "sink");
+    gst_pad_link (webrtcbin_pad, pipeline->video_caps[VIDEO_DECODER]);
+    gst_object_unref (pipeline->video_caps[VIDEO_DECODER]);
 }
 
 
@@ -242,6 +265,7 @@ on_incoming_stream (GstElement * webrtc,
 
 
 
+#ifndef G_OS_WIN32
 
 static gboolean
 handle_event(GstPad* pad, 
@@ -249,19 +273,20 @@ handle_event(GstPad* pad,
             GstEvent* event)
 {
     switch (GST_EVENT_TYPE (event)) {
-
-#ifndef G_OS_WIN32
       case GST_EVENT_NAVIGATION:
         handle_navigator(event,pipeline_singleton.core);
         break;
-#endif
       default:
         gst_pad_event_default(pad, parent,event);
         break;
     }
 }
 
-
+/**
+ * @brief Set the up video sink navigator object
+ * 
+ * @param core 
+ */
 void
 setup_video_sink_navigator(RemoteApp* core)
 {
@@ -270,6 +295,7 @@ setup_video_sink_navigator(RemoteApp* core)
 
     gst_pad_set_event_function_full(pad,handle_event,core,NULL);
 }
+#endif
 
  
 
@@ -284,11 +310,13 @@ setup_pipeline(RemoteApp* core)
     Pipeline* pipe = remote_app_get_pipeline(core);
 
     GError* error = NULL;
-    pipe->pipeline = gst_parse_launch(
-                    "webrtcbin name=webrtcbin  bundle-policy=max-bundle "
-                    "audiotestsrc is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! "
-                    "queue ! " RTP_CAPS_OPUS "97 ! webrtcbin.",&error);
-    pipe->webrtcbin =  gst_bin_get_by_name(GST_BIN(pipe->pipeline),"webrtcbin");
+
+    pipe->pipeline = gst_pipeline_new("wecrtc client");
+    pipe->webrtcbin = gst_element_factory_make("webrtcbin","webrtcbin");
+    gst_bin_add(GST_BIN (pipe->pipeline),pipe->webrtcbin);
+    gst_element_sync_state_with_parent(pipe->webrtcbin);
+
+
     g_object_set(pipe->webrtcbin, "latency", 0, NULL);
 
     /* Incoming streams will be exposed via this signal */
@@ -299,7 +327,6 @@ setup_pipeline(RemoteApp* core)
     connect_signalling_handler(core);
     connect_data_channel_signals(core);
     start_pipeline(core);
-
 }
 
 

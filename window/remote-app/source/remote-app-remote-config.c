@@ -38,6 +38,7 @@ QoE*
 qoe_initialize()
 {
 	QoE* qoe = malloc(sizeof(QoE));
+    memset(qoe,0,sizeof(QoE));
 	return qoe;
 }
 

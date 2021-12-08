@@ -13,7 +13,7 @@
 #include <remote-app-pipeline.h>
 #include <remote-app-data-channel.h>
 #include <remote-app.h>
-#include <remote-app-message.h>
+#include <remote-app-gui.h>
 #include <remote-app-type.h>
 
 #include <exit-code.h>
@@ -27,7 +27,7 @@
 #include <gst/base/gstbasesink.h>
 #include <libsoup/soup.h>
 
-#define SESSION_INFOR_URL "https://host.thinkmay.net/Session/Setting"
+#define SESSION_INFOR_VALIDATE_URL "https://host.thinkmay.net/Session/Setting"
 
 struct _RemoteApp
 {
@@ -45,7 +45,6 @@ struct _RemoteApp
 };
 
 
-
 /**
  * @brief 
  * setup session 
@@ -59,20 +58,20 @@ struct _RemoteApp
 static void
 remote_app_setup_session(RemoteApp* self, gchar* remote_token)
 {    
-	const char* http_aliases[] = { "https", NULL };
-	SoupSession* session = soup_session_new_with_options(
-			SOUP_SESSION_SSL_STRICT, TRUE,
+    const char* https_aliases[] = { "https", NULL };
+	SoupSession* https_session = soup_session_new_with_options(
+			SOUP_SESSION_SSL_STRICT, FALSE,
 			SOUP_SESSION_SSL_USE_SYSTEM_CA_FILE, TRUE,
-			SOUP_SESSION_HTTPS_ALIASES, http_aliases, NULL);
-	Codec audio_codec = 0,video_codec = 0;
-	gchar* signalling_url;
-	JsonArray* STUNlist;
-	GString* turn = g_string_new("turn://");
-	
-	SoupMessage* infor_message = soup_message_new(SOUP_METHOD_GET,SESSION_INFOR_URL);
-	soup_message_headers_append(infor_message->request_headers,"Authentication",remote_token);
+			SOUP_SESSION_HTTPS_ALIASES, https_aliases, NULL);
+		
+	GString* infor_url = g_string_new(SESSION_INFOR_VALIDATE_URL);
+	g_string_append(infor_url,	"?token=");
+	g_string_append(infor_url,	remote_token);
+	gchar* infor_str = g_string_free(infor_url,FALSE);
 
-	soup_session_send_message(session,infor_message);
+
+	SoupMessage* infor_message = soup_message_new(SOUP_METHOD_GET,infor_str);
+	soup_session_send_message(https_session,infor_message);
 
 
 	if(infor_message->status_code == SOUP_STATUS_OK)
@@ -80,37 +79,26 @@ remote_app_setup_session(RemoteApp* self, gchar* remote_token)
 		GError* error = NULL;
 		JsonParser* parser = json_parser_new();
 		JsonObject* json_infor = get_json_object_from_string(infor_message->response_body->data,error,parser);
-		if (error)
-			remote_app_finalize(self,0,NULL);
-		
-		
-		
-		audio_codec = json_object_get_int_member(json_infor,"AudioCodec");
-		video_codec = json_object_get_int_member(json_infor,"VideoCodec");
-		gchar* turnIP = json_object_get_int_member(json_infor,"turnIP");
-		gchar* turnUser = json_object_get_int_member(json_infor,"turnUser");
-		gchar* turnPassword = json_object_get_int_member(json_infor,"turnPassword");
-		signalling_url = json_object_get_string_member(json_infor,"SignallingUrl");
-
-		g_string_append(turn,turnUser);
-		g_string_append(turn,":");
-		g_string_append(turn,turnPassword);
-		g_string_append(turn,"@");
-		g_string_append(turn,turnIP);
-		g_string_append(turn,":3478");
 
 
-		STUNlist = json_object_get_array_member(json_infor,"STUNlist");
+		signalling_hub_setup(self->signalling,
+			json_object_get_string_member(json_infor,"turn"),
+			json_object_get_string_member(json_infor,"signallingurl"),
+			json_object_get_array_member(json_infor,"stuns"),
+			remote_token);
+
+		qoe_setup(self->qoe,
+					json_object_get_int_member(json_infor,"audiocodec"),
+					json_object_get_int_member(json_infor,"videocodec"));
+		g_object_unref(parser);
 	}
-	else
+	else 
 	{
-		remote_app_finalize(self,0,NULL);
+		GError* error = malloc(sizeof(GError));
+		error->message = "fail to get session information";
+		remote_app_finalize(self,0,error);
+		return;
 	}
-	
-
-
-	signalling_hub_setup(self->signalling, g_string_free(turn,FALSE),signalling_url);
-	qoe_setup(self->qoe,audio_codec,video_codec);
 }
 
 
@@ -119,20 +107,19 @@ remote_app_setup_session(RemoteApp* self, gchar* remote_token)
 RemoteApp*
 remote_app_initialize(gchar* remote_token)
 {
-	RemoteApp* app= malloc(sizeof(RemoteApp));
-	app->hub =				webrtchub_initialize();
-	app->signalling =		signalling_hub_initialize(app);
-
-	app->qoe =				qoe_initialize();
-	app->pipe =				pipeline_initialize(app);
+	RemoteApp* app= 		malloc(sizeof(RemoteApp));
 	app->loop =				g_main_loop_new(NULL, FALSE);
+	app->gui =				init_remote_app_gui(app);
+	// app->hub =				webrtchub_initialize();
+	// app->signalling =		signalling_hub_initialize(app);
+
+	// app->qoe =				qoe_initialize();
+	// app->pipe =				pipeline_initialize(app);
 	 
-	remote_app_setup_session(app, remote_token);
+	// remote_app_setup_session(app, remote_token);
+	// setup_pipeline(app);
+	// signalling_connect(app);
 
-
-	setup_pipeline(app);
-
-	signalling_connect(app);
 	g_main_loop_run(app->loop);
 	return app;	
 }
@@ -165,6 +152,7 @@ remote_app_finalize(RemoteApp* self,
 	if(error)
 		g_print(error->message);
 
+	gui_terminate(self->gui);
 	signalling_close(self->signalling);
 	ExitProcess(exit_code);
 }
@@ -206,10 +194,4 @@ SignallingHub*
 remote_app_get_signalling_hub(RemoteApp* core)
 {
 	return core->signalling;
-}
-
-GMainContext*
-remote_app_get_main_context(RemoteApp* core)
-{
-	return g_main_loop_get_context(core->loop);
 }

@@ -46,15 +46,21 @@ struct _SignallingHub
 
     /**
      * @brief 
-     * turn server address
+     * turn connection of the session 
      */
-	gchar* turn;
+	gchar turn[200];
 
     /**
      * @brief 
-     * remote app token
+     * remote token use to establish connection with client
      */
-    gchar* remote_token;
+    gchar remote_token[500];
+
+    /**
+     * @brief 
+     * list of stun server
+     */
+    gchar stuns[10][50];
 };
 
 
@@ -73,18 +79,48 @@ SignallingHub*
 signalling_hub_initialize(RemoteApp* core)
 {
     SignallingHub* hub = malloc(sizeof(SignallingHub));
+    memset(hub,0,sizeof(SignallingHub));
     return hub;
 }
 
+static void
+handle_stun_list(JsonArray* stun_array,
+                 gint index,
+                 JsonNode* node,
+                 gpointer data)
+{
+    SignallingHub* hub = (SignallingHub*)data;
+    gchar* value = json_array_get_string_element(stun_array,index);
+    GString* stun = g_string_new("stun://");
+    g_string_append(stun,value);
+    gchar* stun_url = g_string_free(stun,FALSE);
+    memcpy(hub->stuns[index], stun_url, strlen(stun_url));
+}
 
+#define DEFAULT_TURN "turn://coturnuser:coturnpassword@turn:18.138.254.172:3478"
 
 void
 signalling_hub_setup(SignallingHub* hub, 
                      gchar* turn,
-                     gchar* url)
+                     gchar* url,
+                     JsonArray* stun_array,
+                     gchar* remote_token)
 {
-    hub->signalling_server = url;
-    hub->turn = turn;
+    if(!g_strcmp0(turn,"turn://:@turn::3478"))
+    {
+		g_printerr("Fail to get turn server, setting default value");
+        turn = DEFAULT_TURN;
+    }
+    else
+    {
+		g_print("starting remote session with turn server");
+		g_print(turn);
+    }
+    memcpy(hub->remote_token, remote_token,strlen(remote_token));
+    memcpy(hub->signalling_server, url,strlen(url));
+    memcpy(hub->turn, turn,strlen(turn));
+    json_array_foreach_element(stun_array,
+        (JsonArrayForeach)handle_stun_list,(gpointer)hub);
 }
 
 
@@ -98,7 +134,6 @@ send_message_to_signalling_server(SignallingHub* signalling,
     JsonObject* json_object = json_object_new();
     json_object_set_string_member(json_object, REQUEST_TYPE, request_type);
     json_object_set_string_member(json_object, CONTENT, content);
-    json_object_set_string_member(json_object, RESULT, SESSION_ACCEPTED); 
     
     gchar* buffer = get_string_from_json_object(json_object);
 
@@ -547,8 +582,6 @@ on_server_message(SoupWebsocketConnection* conn,
     g_print(Content);
     g_print("\n");
 
-    
-
     if (!g_strcmp0(RequestType, "OFFER_SDP")) {
         on_sdp_exchange(Content, core);
     } else if (!g_strcmp0(RequestType, "OFFER_ICE")) {
@@ -611,7 +644,7 @@ connect_signalling_handler(RemoteApp* core)
        "stun://stun.thinkmay.net:3478", NULL);
 
     g_object_set(webrtcbin, "turn-server", 
-        signalling_hub_get_turn_server(hub), NULL);
+        hub->turn, NULL);
 
 
     /* This is the gstwebrtc entry point where we create the offer and so on. It
@@ -625,9 +658,3 @@ connect_signalling_handler(RemoteApp* core)
 }
 
 
-
-gchar* 
-signalling_hub_get_turn_server(SignallingHub* hub)
-{
-    return hub->turn;
-}

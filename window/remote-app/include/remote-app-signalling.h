@@ -55,9 +55,11 @@ gboolean                        register_with_server                            
  * @param url 
  * @param session_slave_id 
  */
-void                            signalling_hub_setup                                    (SignallingHub* hub,
-                                                                                        gchar* turn, 
-                                                                                        gchar* url);
+void                            signalling_hub_setup                                    (SignallingHub* hub, 
+                                                                                        gchar* turn,
+                                                                                        gchar* url,
+                                                                                        JsonArray* stun_array,
+                                                                                        gchar* remote_token);
 
 /**
  * @brief 
@@ -67,14 +69,6 @@ void                            signalling_hub_setup                            
  * @return gboolean 
  */
 gboolean                        signalling_close                                        (SignallingHub* hub);
-
-/**
- * @brief 
- * get turn server from signalling hub
- * @param hub 
- * @return gchar* 
- */
-gchar*                          signalling_hub_get_turn_server                          (SignallingHub* hub);
 
 /**
  * @brief 

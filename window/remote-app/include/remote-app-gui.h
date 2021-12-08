@@ -9,41 +9,38 @@
  * 
  */
 #include <remote-app.h>
+#include <remote-app-type.h>
 
-#ifdef G_OS_WIN32
-#include <windows.h>
-#include <WinUser.h>
-#include <libloaderapi.h>
-#include <Xinput.h>
-#endif
 
 #include <gst/gst.h>
-#include <gst/video/videooverlay.h>
-#include <gst/video/gstvideosink.h>
 #include <glib-2.0/glib.h>
-#include <gst/video/videooverlay.h>
-#include <gst/video/gstvideosink.h>
 
 
 
 
-void                adjust_window                           ();
 
-gpointer            gamepad_thread_func                     (gpointer data);
 
-gboolean            _keydown                                (int *key);
 
-void                switch_fullscreen_mode                  (HWND *hwnd);
+/**
+ * @brief 
+ * switch to fullscreen mode
+ * 
+ * @param hwnd 
+ */
+void                switch_fullscreen_mode                  (GUI* gui);
 
-HWND                set_up_window                           (WNDCLASSEX wc, 
-                                                            gchar *title, 
-                                                            HINSTANCE hinstance);
+/**
+ * @brief Set the up window object
+ * 
+ * @param gui 
+ */
+GUI*                init_remote_app_gui                     (RemoteApp *app);
 
-void                handle_message_window_proc              (HWND hwnd, 
-                                                            UINT message, 
-                                                            WPARAM wParam, 
-                                                            LPARAM lParam);
 
-gchar               *select_sink_element                    ();
+/**
+ * @brief 
+ * terminate gui after use, call when remote app is finalized 
+ * @param gui 
+ */
+void                gui_terminate                           (GUI* gui);
 
-gpointer            win32_kb_thread                         (gpointer user_data);

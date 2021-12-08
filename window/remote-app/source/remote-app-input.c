@@ -25,6 +25,7 @@
 #pragma comment(lib, "XInput.lib")
 #include <windows.h>
 #include <Xinput.h>
+#include <Windows.h>
 
 #define WIN32_HID_CAPTURE
 
@@ -173,63 +174,118 @@ handle_navigator(GstEvent *event,
 }
 #else
 
-gpointer 
+/**
+ * @brief 
+ * 
+ * @param data 
+ * @return gpointer 
+ */
+static gpointer 
 gamepad_thread_func(gpointer data)
 {
-  DWORD dwResult;
+    DWORD dwResult;
 
-  XINPUT_STATE state, prevstate;
-  SecureZeroMemory(&state, sizeof(XINPUT_STATE));
-  SecureZeroMemory(&prevstate, sizeof(XINPUT_STATE));
-  dwResult = XInputGetState(0, &prevstate);
+    XINPUT_STATE state, prevstate;
+    SecureZeroMemory(&state, sizeof(XINPUT_STATE));
+    SecureZeroMemory(&prevstate, sizeof(XINPUT_STATE));
+    dwResult = XInputGetState(0, &prevstate);
 
-  DWORD wButtonPressing = 0;
-  DWORD Lstick = 64;
+    DWORD wButtonPressing = 0;
+    DWORD Lstick = 64;
 
-  //key down R key and key up R key
-  INPUT inputs[3];
-  ZeroMemory(inputs, sizeof(inputs));
-  //key down
-  inputs[0].type = INPUT_KEYBOARD;
-  inputs[0].ki.wVk = 0x52;
+    //key down R key and key up R key
+    INPUT inputs[3];
+    ZeroMemory(inputs, sizeof(inputs));
+    //key down
+    inputs[0].type = INPUT_KEYBOARD;
+    inputs[0].ki.wVk = 0x52;
 
-  //key up (same as inputs[0] object but with extra attr)r
-  inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+    //key up (same as inputs[0] object but with extra attr)r
+    inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
 
-  if (dwResult == ERROR_SUCCESS)
-  {
-    // Controller is connected
-    while (XInputGetState(0, &state) == ERROR_SUCCESS)
+    if (dwResult == ERROR_SUCCESS)
     {
-      //dwpacketnumber diff?
-      if (state.dwPacketNumber != prevstate.dwPacketNumber)
-      {
-        //different input
-        wButtonPressing = state.Gamepad.wButtons;
-      }
-      if (wButtonPressing & Lstick)
-      {
-        //std::cout << "hold" << std::endl;
-        XINPUT_VIBRATION vibration;
-        vibration.wLeftMotorSpeed = 65535;
-        vibration.wRightMotorSpeed = 65535;
-        XInputSetState(0, &vibration);
-        SendInput(1, &inputs[0], sizeof(INPUT));
-      }
-      if (prevstate.Gamepad.wButtons & Lstick && (wButtonPressing & Lstick) == 0)
-      {
-        SendInput(1, &inputs[1], sizeof(INPUT));
-      }
-      MoveMemory(&prevstate, &state, sizeof(XINPUT_STATE));
-
-      Sleep(10);
+        // Controller is connected
+        while (XInputGetState(0, &state) == ERROR_SUCCESS)
+        {
+            //dwpacketnumber diff?
+            if (state.dwPacketNumber != prevstate.dwPacketNumber)
+            {
+                //different input
+                wButtonPressing = state.Gamepad.wButtons;
+            }
+            if (wButtonPressing & Lstick)
+            {
+                //std::cout << "hold" << std::endl;
+                XINPUT_VIBRATION vibration;
+                vibration.wLeftMotorSpeed = 65535;
+                vibration.wRightMotorSpeed = 65535;
+                XInputSetState(0, &vibration);
+                SendInput(1, &inputs[0], sizeof(INPUT));
+            }
+            if (prevstate.Gamepad.wButtons & Lstick && (wButtonPressing & Lstick) == 0)
+            {
+                SendInput(1, &inputs[1], sizeof(INPUT));
+            }
+            MoveMemory(&prevstate, &state, sizeof(XINPUT_STATE));
+            Sleep(10);
+        }
     }
-  }
+}
+
+
+
+/**
+ * @brief 
+ * detect if a key is pressed
+ * @param key 
+ * @return gboolean 
+ */
+gboolean
+_keydown(int *key)
+{
+    return (GetAsyncKeyState(key) & 0x8000) != 0;
 }
 
 
 
 
+void 
+handle_message_window_proc(HWND hwnd, 
+                            UINT message, 
+                            WPARAM wParam, 
+                            LPARAM lParam)
+{
+    switch (message)
+    {
+        case WM_CHAR:
+          if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46)) {
+            switch_fullscreen_mode(hwnd);
+          } if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50)) {
+            // hidden mouse setting func
+          } break;
+        case WM_MOUSEWHEEL:
+          if (GET_WHEEL_DELTA_WPARAM(wParam) < 0) {
+            // negative indicates a rotation towards the user (down)
+          } else if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) {
+            // a positive indicate the wheel is rotated away from the user (up)
+          } break;
+        case WM_LBUTTONDOWN:
+          break;
+        case WM_LBUTTONUP:
+          break;
+        case WM_RBUTTONDOWN:
+          break;
+        case WM_RBUTTONUP:
+          break;
+        case WM_MBUTTONDOWN:
+          break;
+        case WM_MBUTTONUP: // awaiting for test
+          break;
+        default:
+          break;
+    }
+}
 
 /**
  * @brief 
@@ -242,9 +298,6 @@ remote_app_input_setup_gamepad(HIDHandler* hid)
     hid->gamepad_thread = g_thread_new("gamepad thread", 
         (GThreadFunc)gamepad_thread_func, NULL);
 }
-
-
-
 
 
 
