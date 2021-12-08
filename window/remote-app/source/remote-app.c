@@ -31,16 +31,46 @@
 
 struct _RemoteApp
 {
+	/**
+	 * @brief 
+	 * 
+	 */
 	Pipeline* pipe;
 
+	/**
+	 * @brief 
+	 * 
+	 */
 	WebRTCHub* hub;
 
+	/**
+	 * @brief 
+	 * 
+	 */
 	GMainLoop* loop;
 
+	/**
+	 * @brief 
+	 * 
+	 */
 	SignallingHub* signalling;
 
+	/**
+	 * @brief 
+	 * 
+	 */
+	HIDHandler* handler;
+
+	/**
+	 * @brief 
+	 * 
+	 */
 	QoE* qoe;
 
+	/**
+	 * @brief 
+	 * 
+	 */
 	GUI* gui;
 };
 
@@ -194,4 +224,10 @@ SignallingHub*
 remote_app_get_signalling_hub(RemoteApp* core)
 {
 	return core->signalling;
+}
+
+HIDHandler*
+remote_app_get_hid_handler(RemoteApp* app)
+{
+	return app->handler;
 }

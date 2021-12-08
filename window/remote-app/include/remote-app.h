@@ -85,5 +85,11 @@ SignallingHub*	remote_app_get_signalling_hub			(RemoteApp* core);
 void			report_remote_app_error				(RemoteApp* self,
 													gchar* error);
 
-
+/**
+ * @brief 
+ * get handler handler from remote app
+ * @param app 
+ * @return HIDHandler* 
+ */
+HIDHandler* 	remote_app_get_hid_handler			(RemoteApp* app);
 #endif 

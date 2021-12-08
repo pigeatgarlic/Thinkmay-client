@@ -10,6 +10,7 @@
  */
 #include <remote-app-gui.h>
 #include <remote-app-type.h>
+#include <remote-app-pipeline.h>
 #include <remote-app.h>
 
 #include <glib.h>
@@ -31,17 +32,53 @@
 
 struct _GUI
 {
+    /**
+     * @brief 
+     * reference to remote app
+     */
     RemoteApp *app;
 #ifdef G_OS_WIN32
+    /**
+     * @brief 
+     * win32 window for display video
+     */
     HWND window;
+
+    /**
+     * @brief 
+     * revious window style
+     */
     LONG prev_style;
+
+    /**
+     * @brief 
+     * previous rectangle size, use for setup fullscreen mode
+     */
     RECT prev_rect;
+
+    /**
+     * @brief 
+     * window retangle, size and position of window
+     */
     RECT wr;
+
+    /**
+     * @brief 
+     * IO channel for remote app
+     */
     GIOChannel *msg_io_channel;
 #endif
+    /**
+     * @brief 
+     * gst video sink element
+     */
     GstElement* sink_element;
+
+    /**
+     * @brief 
+     * fullscreen mode on or off
+     */
     gboolean fullscreen;
-    gboolean enable_input_capture;
 };
 
 static GUI _gui = {0};
@@ -61,10 +98,18 @@ static LRESULT CALLBACK       window_proc             (HWND hWnd,
                                                       WPARAM wParam, 
                                                       LPARAM lParam);
 
+/**
+ * @brief 
+ * 
+ * @param source 
+ * @param condition 
+ * @param data 
+ * @return gboolean 
+ */
 static gboolean
 msg_cb (GIOChannel * source, 
-GIOCondition condition, 
-gpointer data)
+        GIOCondition condition, 
+        gpointer data)
 {
   MSG msg;
 
@@ -110,50 +155,47 @@ set_up_window(GUI* gui)
     ShowWindow (_gui.window, SW_SHOW);
 }
 
-gpointer
-show_window(gpointer data)
-{
-  Sleep(5000);
-  gst_element_set_state (GST_BIN(data), GST_STATE_PLAYING);
-}
 
 static gboolean
-bus_msg (GstBus * bus, GstMessage * msg, gpointer user_data)
+bus_msg (GstBus * bus, 
+          GstMessage * msg, 
+          gpointer user_data)
 {
   GstElement *pipeline = GST_ELEMENT (user_data);
   switch (GST_MESSAGE_TYPE (msg)) {
     case GST_MESSAGE_ASYNC_DONE:
-      g_thread_new(" ",show_window,pipeline);
+      gst_element_set_state (
+        GST_BIN(pipeline_get_pipeline_element(pipeline)), 
+        GST_STATE_PLAYING);
       break;
   }
 
   return TRUE;
 }
 
-static gpointer
-pipeline_runner_func (gpointer user_data)
+gpointer
+setup_video_overlay(GstElement* videosink, 
+                    RemoteApp* app)
 {
-    GstElement *pipeline, *src;
-    GstStateChangeReturn sret;
-    gint num_repeat = 0;
-    GMainContext *context = NULL;
+    GUI* gui = remote_app_get_gui(app);
+    Pipeline* pipeline = remote_app_get_pipeline(app);
+    GstElement* pipe_element = pipeline_get_pipeline_element(pipeline);
+
+    set_up_window(gui);
 
     /* prepare the pipeline */
-    GstElement* sink = gst_bin_get_by_name(GST_BIN(pipeline), "sink");
-    GstElement* decode = gst_bin_get_by_name(GST_BIN(pipeline), "decode");
-    gst_object_ref_sink (sink);
+    gst_object_ref_sink (videosink);
 
+    gst_bus_add_watch (GST_ELEMENT_BUS (pipe_element), bus_msg, pipeline);
 
-
-    gst_bus_add_watch (GST_ELEMENT_BUS (pipeline), bus_msg, pipeline);
-
-    gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (sink),
+    gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (videosink),
         (guintptr) _gui.window);
 
-    sret = gst_element_set_state (GST_BIN(pipeline), GST_STATE_PAUSED);
-    if (sret == GST_STATE_CHANGE_FAILURE) {
-      g_printerr ("Pipeline doesn't want to pause\n");
-    } 
+    GstStateChangeReturn sret = 
+      gst_element_set_state (GST_BIN(pipe_element), GST_STATE_PAUSED);
+    if (sret == GST_STATE_CHANGE_FAILURE) 
+        g_printerr ("Pipeline doesn't want to pause\n");
+
     return NULL;
 }
 
@@ -169,8 +211,6 @@ init_remote_app_gui(RemoteApp *app)
     _gui.wr.left = 0;
     _gui.wr.right = 1920;
 
-    set_up_window(&_gui);
-    Sleep(5000);
     return &_gui;
 }
 
@@ -185,7 +225,8 @@ init_remote_app_gui(RemoteApp *app)
  * @return gboolean 
  */
 static gboolean
-get_monitor_size(RECT *rect, HWND *hwnd)
+get_monitor_size(RECT *rect, 
+                 HWND *hwnd)
 {
     HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
     MONITORINFOEX monitor_info;
@@ -305,18 +346,52 @@ adjust_video_position(RemoteApp* app,
 
 
 
+/**
+ * @brief 
+ * detect if a key is pressed
+ * @param key 
+ * @return gboolean 
+ */
+static gboolean
+_keydown(int *key)
+{
+    return (GetAsyncKeyState(key) & 0x8000) != 0;
+}
 
 
+/**
+ * @brief 
+ * window proc responsible for handling message from window HWND
+ * @param hWnd 
+ * @param message 
+ * @param wParam 
+ * @param lParam 
+ * @return LRESULT 
+ */
 static LRESULT CALLBACK
-window_proc(HWND hWnd, UINT message, 
+window_proc(HWND hWnd, 
+            UINT message, 
             WPARAM wParam, 
             LPARAM lParam)
 {
-    if (message == WM_DESTROY) {
+    if (message == WM_DESTROY) 
+    {
         remote_app_finalize(_gui.app,0,NULL);
     } 
-    else {
+    else if (message == WM_INPUT)
+    {
         handle_message_window_proc(hWnd, message, wParam, lParam );
+    }
+    else if (message = WM_CHAR)
+    {
+        if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46)) 
+        {
+            switch_fullscreen_mode(_gui.window);
+        } 
+        if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50)) 
+        {
+
+        } 
     }
 
     return DefWindowProc(hWnd, message, wParam, lParam);

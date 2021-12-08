@@ -46,4 +46,12 @@ GstElement*			pipeline_get_webrtc_bin			(Pipeline* pipeline);
  */
 Pipeline*			pipeline_initialize				(RemoteApp* core);
 
+
+/**
+ * @brief 
+ * 
+ * @param pipeline 
+ * @return GstElement* 
+ */
+GstElement*         pipeline_get_pipeline_element   (Pipeline* pipeline);
 #endif

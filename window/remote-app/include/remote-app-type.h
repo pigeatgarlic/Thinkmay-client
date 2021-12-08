@@ -15,7 +15,6 @@
 
 
 
-typedef void            (*HandleIntputFunction)           (gint device);
 
 
 /**

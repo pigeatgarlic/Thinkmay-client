@@ -9,24 +9,23 @@
  * 
  */
 #include <remote-app-input.h>
-#include <gst/gst.h>
 #include <remote-app-type.h>
 #include <remote-app-data-channel.h>
+#include <remote-app-gui.h>
 
 
 #include <gst/video/navigation.h>
+#include <gst/gst.h>
 
 #include <human-interface-opcode.h>
 #include <message-form.h>
 
 
 #ifdef G_OS_WIN32
-
 #pragma comment(lib, "XInput.lib")
 #include <windows.h>
 #include <Xinput.h>
 #include <Windows.h>
-
 #define WIN32_HID_CAPTURE
 
 
@@ -34,11 +33,69 @@
 
 struct _HIDHandler
 {
+    /**
+     * @brief 
+     * reference to remote app
+     */
+    RemoteApp* app;
+    /**
+     * @brief 
+     * handle gamepad event
+     */
     GThread *gamepad_thread;
+
+    /**
+     * @brief 
+     * 
+     */
     HANDLE event_handle;
-    gboolean closing;
+
+
+    /**
+     * @brief 
+     * 
+     */
+    gboolean capturing;
+
+
+    /**
+     * @brief 
+     * 
+     */
     GMutex lock;
 };
+
+static HIDHandler HID_handler = {0}; 
+
+HIDHandler*
+init_input_capture_system(void)
+{
+    return &HID_handler;
+}
+
+/**
+ * @brief 
+ * 
+ * @param data 
+ * @return gpointer 
+ */
+gpointer            gamepad_thread_func             (gpointer data);
+
+
+
+
+
+
+void
+trigger_capture_input_event(RemoteApp* app)
+{
+    HIDHandler* handler = remote_app_get_hid_handler(app);
+
+    handler->capturing = TRUE;
+    handler->gamepad_thread = g_thread_new("gamepad thread", 
+        (GThreadFunc)gamepad_thread_func, app);
+}
+
 
 #else
 
@@ -56,11 +113,15 @@ struct _HidInput
     gdouble delta_y;
 
     gint button_code;
-    gchar* keyboard_code;
+
+    gint keyboard_code;
+    gchar keyboard_string[10];
+
+    gint wheel_dY;
+    gint wheel_dX;
 
     HidOpcode opcode;
-
-    HandleIntputFunction function;
+    gboolean relative;
 
     JsonObject* json;
 };
@@ -71,11 +132,17 @@ send_mouse_move_signal(HidInput* input,
 {
     JsonObject* object = json_object_new();
     json_object_set_int_member(object,"Opcode",(gint)input->opcode);
-    json_object_set_int_member(object,"dX",(gint)input->x_pos);
-    json_object_set_int_member(object,"dY",(gint)input->y_pos);
+    if(input->relative)
+    {
+        json_object_set_int_member(object,"dX",(gint)input->delta_x);
+        json_object_set_int_member(object,"dY",(gint)input->delta_y);
+    }
+    else 
+    {
+        json_object_set_int_member(object,"dX",(gint)input->x_pos);
+        json_object_set_int_member(object,"dY",(gint)input->y_pos);
+    }
     hid_data_channel_send(get_string_from_json_object(object),core);
-
-    input->function(input->delta_y);
 }
 
 static void
@@ -85,8 +152,38 @@ send_mouse_button_signal(HidInput* input,
     JsonObject* object = json_object_new();
     json_object_set_int_member(object,"Opcode",(gint)input->opcode);
     json_object_set_int_member(object,"button",input->button_code);
-    json_object_set_int_member(object,"dX",(gint)input->x_pos);
-    json_object_set_int_member(object,"dY",(gint)input->y_pos);
+    if(input->relative)
+    {
+        json_object_set_int_member(object,"dX",(gint)input->delta_x);
+        json_object_set_int_member(object,"dY",(gint)input->delta_y);
+    }
+    else 
+    {
+        json_object_set_int_member(object,"dX",(gint)input->x_pos);
+        json_object_set_int_member(object,"dY",(gint)input->y_pos);
+    }
+    hid_data_channel_send(get_string_from_json_object(object),core);
+}
+
+static void
+send_mouse_wheel_signal(HidInput* input,
+                         RemoteApp* core)
+{
+    JsonObject* object = json_object_new();
+    json_object_set_int_member(object,"Opcode",(gint)input->opcode);
+    json_object_set_int_member(object,"dY",(gint)input->wheel_dY);
+    hid_data_channel_send(get_string_from_json_object(object),core);
+}
+
+static void
+send_gamepad_signal(HARDWAREINPUT input,
+                    RemoteApp* core)
+{
+    JsonObject* object = json_object_new();
+    json_object_set_int_member(object,"Opcode",GAMEPAD_IN);
+    json_object_set_int_member(object,"uMsg",(gint)input.uMsg);
+    json_object_set_int_member(object,"wParamH",(gint)input.wParamH);
+    json_object_set_int_member(object,"wParamL",(gint)input.wParamL);
     hid_data_channel_send(get_string_from_json_object(object),core);
 }
 
@@ -102,8 +199,13 @@ send_key_event(HidInput* input,
 }
 
 
-#ifndef WIN32_HID_CAPTURE
 
+/**
+ * @brief 
+ * parse human interface event and convert to thinkmay standard
+ * @param input Hid structure to parse
+ * @param core remote app
+ */
 static void
 parse_hid_event(HidInput* input, 
                 RemoteApp* core)
@@ -113,18 +215,28 @@ parse_hid_event(HidInput* input,
         case MOUSE_MOVE:
             send_mouse_move_signal(input,core);
             break;
+
         case MOUSE_UP:
             send_mouse_button_signal(input,core);
             break;
         case MOUSE_DOWN:
             send_mouse_button_signal(input,core);
             break;
-        case MOUSE_WHEEL:
+        case MOUSE_RAW:
+            send_mouse_button_signal(input,core);
             break;
+
+        case MOUSE_WHEEL:
+            send_mouse_wheel_signal(input,core);
+            break;
+
         case KEYUP:
             send_key_event(input,core);
             break;
         case KEYDOWN:
+            send_key_event(input,core);
+            break;
+        case KEYRAW:
             send_key_event(input,core);
             break;
         default:
@@ -133,6 +245,7 @@ parse_hid_event(HidInput* input,
 }
 
 
+#ifndef WIN32_HID_CAPTURE
 gboolean      
 handle_navigator(GstEvent *event, 
                 RemoteApp* core)
@@ -183,25 +296,12 @@ handle_navigator(GstEvent *event,
 static gpointer 
 gamepad_thread_func(gpointer data)
 {
-    DWORD dwResult;
+    RemoteApp* app = (RemoteApp*)data;
 
     XINPUT_STATE state, prevstate;
-    SecureZeroMemory(&state, sizeof(XINPUT_STATE));
-    SecureZeroMemory(&prevstate, sizeof(XINPUT_STATE));
-    dwResult = XInputGetState(0, &prevstate);
-
-    DWORD wButtonPressing = 0;
-    DWORD Lstick = 64;
-
-    //key down R key and key up R key
-    INPUT inputs[3];
-    ZeroMemory(inputs, sizeof(inputs));
-    //key down
-    inputs[0].type = INPUT_KEYBOARD;
-    inputs[0].ki.wVk = 0x52;
-
-    //key up (same as inputs[0] object but with extra attr)r
-    inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
+    memset(&state, 0, sizeof(XINPUT_STATE));
+    memset(&prevstate, 0, sizeof(XINPUT_STATE));
+    DWORD dwResult = XInputGetState(0, &prevstate);
 
     if (dwResult == ERROR_SUCCESS)
     {
@@ -211,44 +311,116 @@ gamepad_thread_func(gpointer data)
             //dwpacketnumber diff?
             if (state.dwPacketNumber != prevstate.dwPacketNumber)
             {
-                //different input
-                wButtonPressing = state.Gamepad.wButtons;
+                // handle event
             }
-            if (wButtonPressing & Lstick)
-            {
-                //std::cout << "hold" << std::endl;
-                XINPUT_VIBRATION vibration;
-                vibration.wLeftMotorSpeed = 65535;
-                vibration.wRightMotorSpeed = 65535;
-                XInputSetState(0, &vibration);
-                SendInput(1, &inputs[0], sizeof(INPUT));
-            }
-            if (prevstate.Gamepad.wButtons & Lstick && (wButtonPressing & Lstick) == 0)
-            {
-                SendInput(1, &inputs[1], sizeof(INPUT));
-            }
-            MoveMemory(&prevstate, &state, sizeof(XINPUT_STATE));
+            memcpy(&prevstate, &state, sizeof(XINPUT_STATE));
             Sleep(10);
         }
+    }
+    else
+    {
+        g_printerr("Cannot detect gamepad");
     }
 }
 
 
-
-/**
- * @brief 
- * detect if a key is pressed
- * @param key 
- * @return gboolean 
- */
-gboolean
-_keydown(int *key)
+void
+send_gamepad_vibration(XINPUT_VIBRATION vibration)
 {
-    return (GetAsyncKeyState(key) & 0x8000) != 0;
+    XInputSetState(0, &vibration);
 }
 
 
 
+static void
+handle_window_mouse(RAWMOUSE input,     
+                    HidInput* navigation)
+{
+    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawmouse
+    // wheel handling 
+
+    if ((input.usButtonFlags & RI_MOUSE_WHEEL) == RI_MOUSE_WHEEL ||
+        (input.usButtonFlags & RI_MOUSE_HWHEEL) == RI_MOUSE_HWHEEL)
+    {
+        static const unsigned long defaultScrollLinesPerWheelDelta = 3;
+        static const unsigned long defaultScrollCharsPerWheelDelta = 1;
+
+        gint wheelDelta = (float)(short)input.usButtonData;
+        gint numTicks = wheelDelta / WHEEL_DELTA;
+
+        gboolean isHorizontalScroll = (input.usButtonFlags & RI_MOUSE_HWHEEL) == RI_MOUSE_HWHEEL;
+        gboolean isScrollByPage = FALSE;
+        float scrollDelta = numTicks;
+
+        if (isHorizontalScroll)
+        {
+            unsigned long scrollChars = defaultScrollCharsPerWheelDelta;
+            SystemParametersInfo(SPI_GETWHEELSCROLLCHARS, 0, &scrollChars, 0);
+            scrollDelta *= scrollChars;
+        }
+        else
+        {
+            unsigned long scrollLines = defaultScrollLinesPerWheelDelta;
+            SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &scrollLines, 0);
+            if (scrollLines == WHEEL_PAGESCROLL)
+                isScrollByPage = TRUE;
+            else
+                scrollDelta *= scrollLines;
+        }
+
+
+        navigation->opcode = MOUSE_WHEEL;
+        navigation->wheel_dY = scrollDelta;
+        return;
+    }
+
+    navigation->opcode = MOUSE_RAW;
+    navigation->button_code = input.usButtonFlags;
+
+    // mouse handling
+    if ((input.usFlags & MOUSE_MOVE_ABSOLUTE) == MOUSE_MOVE_ABSOLUTE)
+    {
+        gboolean isVirtualDesktop = (input.usFlags & MOUSE_VIRTUAL_DESKTOP) == MOUSE_VIRTUAL_DESKTOP;
+
+        gint width = GetSystemMetrics(isVirtualDesktop ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
+        gint height = GetSystemMetrics(isVirtualDesktop ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
+
+        navigation->x_pos = ((input.lLastX / 65535.0f) * width);
+        navigation->y_pos = ((input.lLastY / 65535.0f) * height);
+        navigation->relative = FALSE;
+    }
+    else if (input.lLastX != 0 || input.lLastY != 0)
+    {
+        navigation->delta_x = input.lLastX;
+        navigation->delta_y = input.lLastY;
+        navigation->relative = TRUE;
+    }
+}
+
+static void
+handle_window_keyboard(RAWKEYBOARD input,
+                        HidInput* navigation)
+{
+    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawkeyboard
+    gint VKey  = input.VKey;
+    gint Message= input.Message;
+
+    navigation->opcode = KEYRAW;
+    navigation->keyboard_code = VKey;
+}
+
+static void
+handle_window_hid(RAWHID input,
+                HidInput* navigation)
+{
+    gchar* buffer = input.bRawData;
+
+    for(gint i = 1; i < input.dwCount + 1; i++)
+    {
+        GBytes* bytes = g_bytes_new(buffer+((i-1)*input.dwSizeHid),input.dwSizeHid);
+        // handle byte here
+    }
+}
 
 void 
 handle_message_window_proc(HWND hwnd, 
@@ -256,48 +428,37 @@ handle_message_window_proc(HWND hwnd,
                             WPARAM wParam, 
                             LPARAM lParam)
 {
-    switch (message)
+    if(!HID_handler.capturing)
+        return;
+
+    gint KeyIndex;
+    HidInput* navigation = malloc(sizeof(HidInput));
+
+    guint dwSize;
+    GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
+    gpointer buffer = malloc(dwSize);
+    if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, buffer, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) 
+        return;
+
+    RAWINPUT* raw_input = (RAWINPUT*) buffer;
+    if (raw_input->header.dwType == RIM_TYPEKEYBOARD) 
     {
-        case WM_CHAR:
-          if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46)) {
-            switch_fullscreen_mode(hwnd);
-          } if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50)) {
-            // hidden mouse setting func
-          } break;
-        case WM_MOUSEWHEEL:
-          if (GET_WHEEL_DELTA_WPARAM(wParam) < 0) {
-            // negative indicates a rotation towards the user (down)
-          } else if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) {
-            // a positive indicate the wheel is rotated away from the user (up)
-          } break;
-        case WM_LBUTTONDOWN:
-          break;
-        case WM_LBUTTONUP:
-          break;
-        case WM_RBUTTONDOWN:
-          break;
-        case WM_RBUTTONUP:
-          break;
-        case WM_MBUTTONDOWN:
-          break;
-        case WM_MBUTTONUP: // awaiting for test
-          break;
-        default:
-          break;
+        handle_window_keyboard(raw_input->data.keyboard,navigation);
     }
+    else if (raw_input->header.dwType == RIM_TYPEMOUSE) 
+    {
+        handle_window_mouse(raw_input->data.mouse,navigation);
+    }
+    else if (raw_input->header.dwType == RIM_TYPEHID)
+    {
+        handle_window_hid(raw_input->data.hid,navigation);
+    }
+    
+
+    parse_hid_event(navigation,HID_handler.app);
+    free(navigation);
 }
 
-/**
- * @brief 
- * 
- * @param hid 
- */
-void
-remote_app_input_setup_gamepad(HIDHandler* hid)
-{
-    hid->gamepad_thread = g_thread_new("gamepad thread", 
-        (GThreadFunc)gamepad_thread_func, NULL);
-}
 
 
 

@@ -1,9 +1,20 @@
-﻿#include <remote-app-pipeline.h>
+﻿/**
+ * @file remote-app-pipeline.c
+ * @author {Do Huy Hoang} ({huyhoangdo0205@gmail.com})
+ * @brief 
+ * @version 1.0
+ * @date 2021-12-08
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
+#include <remote-app-pipeline.h>
 #include <remote-app-type.h>
 #include <remote-app-data-channel.h>
 #include <remote-app-signalling.h>
 #include <remote-app-remote-config.h>
 #include <remote-app-pipeline.h>
+#include <remote-app-gui.h>
 #include <remote-app-input.h>
 
 #include <logging.h>
@@ -171,8 +182,10 @@ handle_video_stream (GstPad * pad,
     
     GstPad* queue_pad = gst_element_get_static_pad (queue, "sink");
     GstPadLinkReturn ret = gst_pad_link (pad, queue_pad);
-
     g_assert_cmphex (ret, ==, GST_PAD_LINK_OK);
+
+
+    setup_video_overlay(pipeline->video_element[VIDEO_SINK],core);
 }
 
 
@@ -348,3 +361,9 @@ pipeline_get_pipline(Pipeline* pipe)
 }
 
 
+
+GstElement*         
+pipeline_get_pipeline_element(Pipeline* pipeline)
+{
+    return pipeline->pipeline;
+}

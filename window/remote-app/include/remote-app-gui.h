@@ -8,6 +8,8 @@
  * @copyright Copyright (c) 2021
  * 
  */
+#ifndef __REMOTE_APP_GUI_H__
+#define __REMOTE_APP_GUI_H__
 #include <remote-app.h>
 #include <remote-app-type.h>
 
@@ -44,3 +46,15 @@ GUI*                init_remote_app_gui                     (RemoteApp *app);
  */
 void                gui_terminate                           (GUI* gui);
 
+
+/**
+ * @brief Set the up video overlay object
+ * 
+ * @param videosink 
+ * @param app 
+ * @return gpointer 
+ */
+gpointer            setup_video_overlay                     (GstElement* videosink, 
+                                                            RemoteApp* app);
+                                                    
+#endif
