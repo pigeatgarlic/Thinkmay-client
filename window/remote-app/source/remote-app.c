@@ -140,15 +140,15 @@ remote_app_initialize(gchar* remote_token)
 	RemoteApp* app= 		malloc(sizeof(RemoteApp));
 	app->loop =				g_main_loop_new(NULL, FALSE);
 	app->gui =				init_remote_app_gui(app);
-	// app->hub =				webrtchub_initialize();
-	// app->signalling =		signalling_hub_initialize(app);
+	app->hub =				webrtchub_initialize();
+	app->signalling =		signalling_hub_initialize(app);
 
-	// app->qoe =				qoe_initialize();
-	// app->pipe =				pipeline_initialize(app);
+	app->qoe =				qoe_initialize();
+	app->pipe =				pipeline_initialize(app);
 	 
-	// remote_app_setup_session(app, remote_token);
-	// setup_pipeline(app);
-	// signalling_connect(app);
+	remote_app_setup_session(app, remote_token);
+	setup_pipeline(app);
+	signalling_connect(app);
 
 	g_main_loop_run(app->loop);
 	return app;	

@@ -11,6 +11,7 @@
 #include <remote-app-gui.h>
 #include <remote-app-type.h>
 #include <remote-app-pipeline.h>
+#include <remote-app-input.h>
 #include <remote-app.h>
 
 #include <glib.h>
@@ -37,6 +38,7 @@ struct _GUI
      * reference to remote app
      */
     RemoteApp *app;
+
 #ifdef G_OS_WIN32
     /**
      * @brief 
@@ -68,6 +70,7 @@ struct _GUI
      */
     GIOChannel *msg_io_channel;
 #endif
+
     /**
      * @brief 
      * gst video sink element
@@ -156,10 +159,18 @@ set_up_window(GUI* gui)
 }
 
 
+/**
+ * @brief 
+ * handle message from gbus of gstreamer pipeline
+ * @param bus 
+ * @param msg 
+ * @param user_data 
+ * @return gboolean 
+ */
 static gboolean
 bus_msg (GstBus * bus, 
-          GstMessage * msg, 
-          gpointer user_data)
+        GstMessage * msg, 
+        gpointer user_data)
 {
   GstElement *pipeline = GST_ELEMENT (user_data);
   switch (GST_MESSAGE_TYPE (msg)) {
