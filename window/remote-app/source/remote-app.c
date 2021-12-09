@@ -16,12 +16,11 @@
 #include <remote-app-gui.h>
 #include <remote-app-type.h>
 
-#include <exit-code.h>
 #include <module-code.h>
+#include <development.h>
 
 
 #include <glib.h>
-#include <logging.h>
 #include <message-form.h>
 #include <module-code.h>
 #include <gst/base/gstbasesink.h>
@@ -88,46 +87,61 @@ struct _RemoteApp
 static void
 remote_app_setup_session(RemoteApp* self, gchar* remote_token)
 {    
-    const char* https_aliases[] = { "https", NULL };
-	SoupSession* https_session = soup_session_new_with_options(
-			SOUP_SESSION_SSL_STRICT, FALSE,
-			SOUP_SESSION_SSL_USE_SYSTEM_CA_FILE, TRUE,
-			SOUP_SESSION_HTTPS_ALIASES, https_aliases, NULL);
-		
-	GString* infor_url = g_string_new(SESSION_INFOR_VALIDATE_URL);
-	g_string_append(infor_url,	"?token=");
-	g_string_append(infor_url,	remote_token);
-	gchar* infor_str = g_string_free(infor_url,FALSE);
-
-
-	SoupMessage* infor_message = soup_message_new(SOUP_METHOD_GET,infor_str);
-	soup_session_send_message(https_session,infor_message);
-
-
-	if(infor_message->status_code == SOUP_STATUS_OK)
+	if(!DEVELOPMENT_ENVIRONMENT)
 	{
-		GError* error = NULL;
-		JsonParser* parser = json_parser_new();
-		JsonObject* json_infor = get_json_object_from_string(infor_message->response_body->data,error,parser);
+		const char* https_aliases[] = { "https", NULL };
+		SoupSession* https_session = soup_session_new_with_options(
+				SOUP_SESSION_SSL_STRICT, FALSE,
+				SOUP_SESSION_SSL_USE_SYSTEM_CA_FILE, TRUE,
+				SOUP_SESSION_HTTPS_ALIASES, https_aliases, NULL);
+			
+		GString* infor_url = g_string_new(SESSION_INFOR_VALIDATE_URL);
+		g_string_append(infor_url,	"?token=");
+		g_string_append(infor_url,	remote_token);
+		gchar* infor_str = g_string_free(infor_url,FALSE);
 
 
+		SoupMessage* infor_message = soup_message_new(SOUP_METHOD_GET,infor_str);
+		soup_session_send_message(https_session,infor_message);
+
+
+		if(infor_message->status_code == SOUP_STATUS_OK)
+		{
+			GError* error = NULL;
+			JsonParser* parser = json_parser_new();
+			JsonObject* json_infor = get_json_object_from_string(infor_message->response_body->data,error,parser);
+
+
+			signalling_hub_setup(self->signalling,
+				json_object_get_string_member(json_infor,"turn"),
+				json_object_get_string_member(json_infor,"signallingurl"),
+				json_object_get_array_member(json_infor,"stuns"),
+				remote_token);
+
+			qoe_setup(self->qoe,
+						json_object_get_int_member(json_infor,"audiocodec"),
+						json_object_get_int_member(json_infor,"videocodec"));
+			g_object_unref(parser);
+		}
+		else 
+		{
+			GError* error = malloc(sizeof(GError));
+			error->message = "fail to get session information";
+			remote_app_finalize(self,0,error);
+			return;
+		}
+	}
+	else
+	{
 		signalling_hub_setup(self->signalling,
-			json_object_get_string_member(json_infor,"turn"),
-			json_object_get_string_member(json_infor,"signallingurl"),
-			json_object_get_array_member(json_infor,"stuns"),
+			DEFAULT_TURN,
+			DEVELOPMENT_SIGNALLING_URL,
+			NULL,
 			remote_token);
 
 		qoe_setup(self->qoe,
-					json_object_get_int_member(json_infor,"audiocodec"),
-					json_object_get_int_member(json_infor,"videocodec"));
-		g_object_unref(parser);
-	}
-	else 
-	{
-		GError* error = malloc(sizeof(GError));
-		error->message = "fail to get session information";
-		remote_app_finalize(self,0,error);
-		return;
+				OPUS_ENC,
+				CODEC_H265);
 	}
 }
 

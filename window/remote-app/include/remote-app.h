@@ -38,7 +38,6 @@ RemoteApp*		remote_app_initialize				(gchar* remote_token);
  * @param error 
  */
 void			remote_app_finalize					(RemoteApp* self,
-														gint exit_code,
 														GError* error);
 
 /**

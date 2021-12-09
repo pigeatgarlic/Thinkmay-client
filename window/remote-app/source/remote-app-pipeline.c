@@ -17,9 +17,7 @@
 #include <remote-app-gui.h>
 #include <remote-app-input.h>
 
-#include <logging.h>
 #include <qoe.h>
-#include <exit-code.h>
 #include <platform-selection.h>
 
 #include <gst/gst.h>
@@ -113,7 +111,7 @@ start_pipeline(RemoteApp* core)
     {
         GError error;
         error.message = "Fail to start pipeline, this may due to pipeline setup failure";
-        remote_app_finalize(core, PIPELINE_ERROR_EXIT,&error);
+        remote_app_finalize(core, &error);
     }
     return TRUE;
 }

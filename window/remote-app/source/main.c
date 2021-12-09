@@ -13,6 +13,7 @@
 
 #include <gst/gst.h>
 #include <glib-2.0/glib.h>
+#include <development.h>
 
 #ifndef GST_USE_UNSTABLE_API
 #define GST_USE_UNSTABLE_API
@@ -84,32 +85,39 @@ main(int argc, char* argv[])
         return -1;
     }
 
-    if(argc == 2)
+    if(!DEVELOPMENT_ENVIRONMENT)
     {
-        gchar** array = split(argv[1],'/');
-
-        if(g_strcmp0(array[0],"thinkmay:"))
+        if(argc == 2)
         {
-            g_print("%s :",array[0]);
-            g_printerr("wrong uri, remote app exiting");
-            return;
-        }
-
-
-        gchar** array_param = split(array[2],'.');
-        do
-        {
-            if(*(array_param))
+            gchar** array = split(argv[1],'/');
+            if(g_strcmp0(array[0],"thinkmay:"))
             {
-                gchar** parameter = split(*(array_param),'=');
-                if(!g_strcmp0(*(parameter ),"token"))
+                g_print("%s :",array[0]);
+                g_printerr("wrong uri, remote app exiting");
+                return;
+            }
+
+            gchar** array_param = split(array[2],'.');
+            do
+            {
+                if(*(array_param))
                 {
-                    memcpy(remote_token,*(parameter +1),strlen(*(parameter +1)));
+                    gchar** parameter = split(*(array_param),'=');
+                    if(!g_strcmp0(*(parameter ),"token"))
+                    {
+                        memcpy(remote_token,*(parameter +1),strlen(*(parameter +1)));
+                    }
                 }
             }
+            while(*(array_param++));
         }
-        while(*(array_param++));
     }
+    else
+    {
+        g_print("Starting development client\n");
+        memcpy(remote_token,DEFAULT_CLIENT_TOKEN,strlen(DEFAULT_CLIENT_TOKEN));
+    }
+
 
     remote_app_initialize(remote_token);
     return 0;

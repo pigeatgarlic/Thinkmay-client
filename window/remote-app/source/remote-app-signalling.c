@@ -4,9 +4,8 @@
 #include <remote-app-pipeline.h>
 #include <remote-app-type.h>
 
-#include <logging.h>
-#include <exit-code.h>
 #include <signalling-message.h>
+#include <development.h>
 
 #include <gst/gst.h>
 #include <glib-2.0/glib.h>
@@ -42,7 +41,7 @@ struct _SignallingHub
      * @brief 
      * signalling server url
      */
-	gchar* signalling_server;
+	gchar signalling_server[200];
 
     /**
      * @brief 
@@ -97,7 +96,6 @@ handle_stun_list(JsonArray* stun_array,
     memcpy(hub->stuns[index], stun_url, strlen(stun_url));
 }
 
-#define DEFAULT_TURN "turn://coturnuser:coturnpassword@turn:18.138.254.172:3478"
 
 void
 signalling_hub_setup(SignallingHub* hub, 
@@ -119,6 +117,9 @@ signalling_hub_setup(SignallingHub* hub,
     memcpy(hub->remote_token, remote_token,strlen(remote_token));
     memcpy(hub->signalling_server, url,strlen(url));
     memcpy(hub->turn, turn,strlen(turn));
+    if(!stun_array)
+        return;
+
     json_array_foreach_element(stun_array,
         (JsonArrayForeach)handle_stun_list,(gpointer)hub);
 }
@@ -491,7 +492,7 @@ on_sdp_exchange(gchar* data,
     GError* error = NULL;
     JsonParser* parser = json_parser_new();
     JsonObject* object = get_json_object_from_string(data,&error,parser);
-	if(!error == NULL || object == NULL) {remote_app_finalize(core,UNKNOWN_PACKAGE_FROM_CLIENT,error);}
+	if(!error == NULL || object == NULL) {remote_app_finalize(core,error);}
 
     gint ret;
     GstSDPMessage* sdp;
@@ -611,7 +612,7 @@ on_server_connected(SoupSession* session,
     hub->connection = soup_session_websocket_connect_finish(session, res, &error);
     if (!error == NULL || hub->connection == NULL) 
     {
-        remote_app_finalize(core, SIGNALLING_SERVER_CONNECTION_ERROR_EXIT,error);
+        remote_app_finalize(core, error);
     }
 
     g_signal_connect(hub->connection, "closed", G_CALLBACK(on_server_closed), core);
