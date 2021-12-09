@@ -21,7 +21,7 @@ void                handle_window_wheel             (gint isup,
                                                      RemoteApp* app);
 
 
-                                                     
+
 /**
  * @brief 
  * 
@@ -47,7 +47,7 @@ void                trigger_capture_input_event     (RemoteApp* app);
  * 
  * @return InputHandler* 
  */
-InputHandler*       init_input_capture_system       ();
+InputHandler*       init_input_capture_system       (RemoteApp* app);
 
 
 

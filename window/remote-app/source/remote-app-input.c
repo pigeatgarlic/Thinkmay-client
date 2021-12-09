@@ -55,9 +55,10 @@ struct _InputHandler
 static InputHandler HID_handler = {0}; 
 
 InputHandler*
-init_input_capture_system()
+init_input_capture_system(RemoteApp* app)
 {
     HID_handler.capturing = FALSE;
+    HID_handler.app = app;
     return &HID_handler;
 }
 
@@ -100,13 +101,11 @@ struct _HidInput
     gdouble delta_x;
     gdouble delta_y;
 
-    gint button_code;
-
+    gint mouse_code;
+    gboolean key_is_up;
     gint keyboard_code;
-    gchar keyboard_string[10];
 
     gint wheel_dY;
-    gint wheel_dX;
 
     HidOpcode opcode;
     gboolean relative;
@@ -115,31 +114,12 @@ struct _HidInput
 };
 
 static void
-send_mouse_move_signal(HidInput* input,
-                  RemoteApp* core)
-{
-    JsonObject* object = json_object_new();
-    json_object_set_int_member(object,"Opcode",(gint)input->opcode);
-    if(input->relative)
-    {
-        json_object_set_int_member(object,"dX",(gint)input->delta_x);
-        json_object_set_int_member(object,"dY",(gint)input->delta_y);
-    }
-    else 
-    {
-        json_object_set_int_member(object,"dX",(gint)input->x_pos);
-        json_object_set_int_member(object,"dY",(gint)input->y_pos);
-    }
-    hid_data_channel_send(get_string_from_json_object(object),core);
-}
-
-static void
-send_mouse_button_signal(HidInput* input,
+send_mouse_signal(HidInput* input,
                          RemoteApp* core)
 {
     JsonObject* object = json_object_new();
     json_object_set_int_member(object,"Opcode",(gint)input->opcode);
-    json_object_set_int_member(object,"button",input->button_code);
+    json_object_set_int_member(object,"MouseCode",(gint)input->mouse_code);
     if(input->relative)
     {
         json_object_set_int_member(object,"dX",(gint)input->delta_x);
@@ -159,7 +139,8 @@ send_mouse_wheel_signal(HidInput* input,
 {
     JsonObject* object = json_object_new();
     json_object_set_int_member(object,"Opcode",(gint)input->opcode);
-    json_object_set_int_member(object,"dY",(gint)input->wheel_dY);
+    json_object_set_int_member(object,"WheeldY",(gint)input->wheel_dY);
+
     hid_data_channel_send(get_string_from_json_object(object),core);
 }
 
@@ -172,6 +153,7 @@ send_gamepad_signal(HARDWAREINPUT input,
     json_object_set_int_member(object,"uMsg",(gint)input.uMsg);
     json_object_set_int_member(object,"wParamH",(gint)input.wParamH);
     json_object_set_int_member(object,"wParamL",(gint)input.wParamL);
+
     hid_data_channel_send(get_string_from_json_object(object),core);
 }
 
@@ -182,20 +164,29 @@ send_key_event(HidInput* input,
 {
     JsonObject* object = json_object_new();
     json_object_set_int_member(object,"Opcode",(gint)input->opcode);
-    if(input->opcode == KEYRAW)
-    {
-        json_object_set_int_member(object,"wVk",input->keyboard_string);
+    json_object_set_boolean_member(object,"IsUp",input->key_is_up);
+    json_object_set_int_member(object,"wVk",input->keyboard_code);
 
-    }
-    else if (input->opcode == KEYUP || 
-             input->opcode == KEYDOWN)
-    {
-        json_object_set_string_member(object,"wVk",input->keyboard_code);
-                
-    }
-    
-    // hid_data_channel_send(get_string_from_json_object(object),core);
+    hid_data_channel_send(get_string_from_json_object(object),core);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -211,29 +202,11 @@ parse_hid_event(HidInput* input,
 {
     switch((gint)input->opcode)
     {
-        case MOUSE_MOVE:
-            send_mouse_move_signal(input,core);
+        case MOUSERAW:
+            send_mouse_signal(input,core);
             break;
-
-        case MOUSE_UP:
-            send_mouse_button_signal(input,core);
-            break;
-        case MOUSE_DOWN:
-            send_mouse_button_signal(input,core);
-            break;
-        case MOUSE_RAW:
-            send_mouse_button_signal(input,core);
-            break;
-
         case MOUSE_WHEEL:
             send_mouse_wheel_signal(input,core);
-            break;
-
-        case KEYUP:
-            send_key_event(input,core);
-            break;
-        case KEYDOWN:
-            send_key_event(input,core);
             break;
         case KEYRAW:
             send_key_event(input,core);
@@ -373,8 +346,8 @@ handle_window_mouse_raw(RAWMOUSE input,
         return;
     }
 
-    navigation->opcode = MOUSE_RAW;
-    navigation->button_code = input.usButtonFlags;
+    navigation->opcode = MOUSERAW;
+    navigation->mouse_code = input.usButtonFlags;
 
     // mouse handling
     if ((input.usFlags & MOUSE_MOVE_ABSOLUTE) == MOUSE_MOVE_ABSOLUTE)
@@ -405,6 +378,8 @@ handle_window_keyboard(RAWKEYBOARD input,
     gint Message= input.Message;
 
     navigation->opcode = KEYRAW;
+    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawkeyboard
+    navigation->key_is_up = input.Flags;
     navigation->keyboard_code = VKey;
 }
 
@@ -457,7 +432,14 @@ handle_window_mouse_relative(gint mouse_code,
                           gint delta_Y,
                           RemoteApp* app)
 {
-    g_print("%d,%d,%d\n",delta_X,delta_Y,mouse_code);
+    HidInput* navigation = malloc(sizeof(HidInput));
+    memset(navigation,0,sizeof(HidInput));
+    navigation->opcode = MOUSERAW;
+    navigation->relative = TRUE;
+    navigation->delta_x = delta_X;
+    navigation->delta_y = delta_Y;
+    parse_hid_event(navigation,HID_handler.app);
+    free(navigation);
 }
 
 
@@ -465,7 +447,12 @@ void
 handle_window_wheel(gint isup,
                     RemoteApp* app)
 {
-    g_print("%d\n",isup);
+    HidInput* navigation = malloc(sizeof(HidInput));
+    memset(navigation,0,sizeof(HidInput));
+    navigation->opcode = MOUSE_WHEEL;
+    navigation->wheel_dY = 120 * isup;
+    parse_hid_event(navigation,HID_handler.app);
+    free(navigation);
 }
 
 #endif

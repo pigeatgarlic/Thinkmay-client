@@ -5,23 +5,13 @@
 /*HID data channel opcode*/
 typedef enum
 {
-	KEYUP,
-	KEYDOWN,
 	KEYRAW,
+	MOUSERAW,
 
 	MOUSE_WHEEL,
-	MOUSE_MOVE,
-	MOUSE_UP,
-	MOUSE_DOWN,
-	MOUSE_RAW,
 
 	GAMEPAD_IN,
 	GAMEPAD_OUT,
-
-	POINTER_LOCK,
-
-	KEYRESET,
-
 
 }HidOpcode;
 
