@@ -27,7 +27,7 @@ typedef struct 			_Pipeline 				            Pipeline;
  * @brief 
  * hid handler is a datastructure that wrap around handling of 
  */
-typedef struct          _HIDHandler                         HIDHandler;
+typedef struct          _InputHandler                         InputHandler;
 
 /**
  * @brief 

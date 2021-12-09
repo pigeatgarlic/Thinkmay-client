@@ -15,18 +15,18 @@
 #include <remote-app.h>
 #include <remote-app-gui.h>
 #include <remote-app-type.h>
+#include <remote-app-input.h>
 
 #include <module-code.h>
 #include <development.h>
 
 
 #include <glib.h>
+#include <gst/base/gstbasesink.h>
 #include <message-form.h>
 #include <module-code.h>
-#include <gst/base/gstbasesink.h>
 #include <libsoup/soup.h>
 
-#define SESSION_INFOR_VALIDATE_URL "https://host.thinkmay.net/Session/Setting"
 
 struct _RemoteApp
 {
@@ -58,7 +58,7 @@ struct _RemoteApp
 	 * @brief 
 	 * 
 	 */
-	HIDHandler* handler;
+	InputHandler* handler;
 
 	/**
 	 * @brief 
@@ -85,7 +85,8 @@ struct _RemoteApp
  * @param video_codec 
  */
 static void
-remote_app_setup_session(RemoteApp* self, gchar* remote_token)
+remote_app_setup_session(RemoteApp* self, 
+						 gchar* remote_token)
 {    
 	if(!DEVELOPMENT_ENVIRONMENT)
 	{
@@ -153,6 +154,7 @@ remote_app_initialize(gchar* remote_token)
 {
 	RemoteApp* app= 		malloc(sizeof(RemoteApp));
 	app->loop =				g_main_loop_new(NULL, FALSE);
+	app->handler =			init_input_capture_system(app);
 	app->gui =				init_remote_app_gui(app);
 	app->hub =				webrtchub_initialize();
 	app->signalling =		signalling_hub_initialize(app);
@@ -240,7 +242,7 @@ remote_app_get_signalling_hub(RemoteApp* core)
 	return core->signalling;
 }
 
-HIDHandler*
+InputHandler*
 remote_app_get_hid_handler(RemoteApp* app)
 {
 	return app->handler;

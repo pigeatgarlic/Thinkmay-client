@@ -56,5 +56,16 @@ void                gui_terminate                           (GUI* gui);
  */
 gpointer            setup_video_overlay                     (GstElement* videosink, 
                                                             RemoteApp* app);
-                                                    
+
+/**
+ * @brief 
+ * 
+ */
+void                enable_client_cursor                    ();
+
+/**
+ * @brief 
+ * 
+ */
+void                disable_client_cursor                   ();
 #endif

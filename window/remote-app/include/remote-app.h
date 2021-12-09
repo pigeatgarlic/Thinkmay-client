@@ -11,7 +11,7 @@
 #ifndef __REMOTE_APP_H__
 #define __REMOTE_APP_H__
 
-#include "remote-app-type.h"
+#include <remote-app-type.h>
 #include <message-form.h>
 
 
@@ -90,5 +90,14 @@ void			report_remote_app_error				(RemoteApp* self,
  * @param app 
  * @return HIDHandler* 
  */
-HIDHandler* 	remote_app_get_hid_handler			(RemoteApp* app);
+InputHandler* 	remote_app_get_hid_handler			(RemoteApp* app);
+
+
+/**
+ * @brief 
+ * get gui from remote app
+ * @param core 
+ * @return GUI* 
+ */
+GUI* 			remote_app_get_gui					(RemoteApp* core);
 #endif 

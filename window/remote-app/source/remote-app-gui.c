@@ -28,6 +28,7 @@
 #include <WinUser.h>
 #include <libloaderapi.h>
 #include <Xinput.h>
+#include <hidusage.h>
 #endif
 
 
@@ -82,6 +83,9 @@ struct _GUI
      * fullscreen mode on or off
      */
     gboolean fullscreen;
+
+
+    gboolean disable_client_cursor;
 };
 
 static GUI _gui = {0};
@@ -140,7 +144,7 @@ set_up_window(GUI* gui)
     wc.style = CS_HREDRAW | CS_VREDRAW; //// ????
     wc.lpfnWndProc = (WNDPROC)window_proc;
     wc.hInstance = hinstance;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hCursor = LoadCursor(NULL, IDC_NO);
     wc.lpszClassName = "GstWIN32VideoOverlay";
     RegisterClassEx(&wc);
 
@@ -155,7 +159,21 @@ set_up_window(GUI* gui)
                           hinstance, NULL);
     gui->msg_io_channel = g_io_channel_win32_new_messages (0);
     g_io_add_watch (gui->msg_io_channel, G_IO_IN, msg_cb, NULL);
-    ShowWindow (_gui.window, SW_SHOW);
+
+	{
+		RAWINPUTDEVICE devices[1];
+		devices[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
+		devices[0].usUsage = HID_USAGE_GENERIC_KEYBOARD;
+		devices[0].dwFlags = RIDEV_NOLEGACY | RIDEV_NOHOTKEYS;
+		devices[0].hwndTarget = _gui.window;
+
+		BOOL registered = RegisterRawInputDevices(devices, ARRAYSIZE(devices),
+			sizeof(RAWINPUTDEVICE));
+		if(registered == FALSE)
+		{
+			g_printerr("Registering keyboard and/or mouse as Raw Input devices failed!");
+		}
+	}
 }
 
 
@@ -175,14 +193,14 @@ bus_msg (GstBus * bus,
   GstElement *pipeline = GST_ELEMENT (user_data);
   switch (GST_MESSAGE_TYPE (msg)) {
     case GST_MESSAGE_ASYNC_DONE:
-      gst_element_set_state (
-        GST_BIN(pipeline_get_pipeline_element(pipeline)), 
-        GST_STATE_PLAYING);
       break;
   }
 
   return TRUE;
 }
+
+
+
 
 gpointer
 setup_video_overlay(GstElement* videosink, 
@@ -192,20 +210,14 @@ setup_video_overlay(GstElement* videosink,
     Pipeline* pipeline = remote_app_get_pipeline(app);
     GstElement* pipe_element = pipeline_get_pipeline_element(pipeline);
 
-    set_up_window(gui);
-
     /* prepare the pipeline */
     gst_object_ref_sink (videosink);
 
-    gst_bus_add_watch (GST_ELEMENT_BUS (pipe_element), bus_msg, pipeline);
+    gst_bus_add_watch (GST_ELEMENT_BUS (pipe_element), bus_msg, pipe_element);
 
+    ShowWindow (_gui.window, SW_SHOW);
     gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (videosink),
         (guintptr) _gui.window);
-
-    GstStateChangeReturn sret = 
-      gst_element_set_state (GST_BIN(pipe_element), GST_STATE_PAUSED);
-    if (sret == GST_STATE_CHANGE_FAILURE) 
-        g_printerr ("Pipeline doesn't want to pause\n");
 
     return NULL;
 }
@@ -217,11 +229,10 @@ init_remote_app_gui(RemoteApp *app)
 
 
     _gui.app = app;
-    _gui.wr.bottom = 1080;
-    _gui.wr.top = 0;
-    _gui.wr.left = 0;
-    _gui.wr.right = 1920;
+    RECT wr = { 0, 0, 320, 240 };
+    _gui.wr = wr;
 
+    set_up_window(&_gui);
     return &_gui;
 }
 
@@ -372,6 +383,55 @@ _keydown(int *key)
 
 /**
  * @brief 
+ * center mouse to center of the screee
+ * @param gui 
+ * @return RECT new position of the screen 
+ */
+POINT
+center_mouse_position(GUI* gui)
+{
+    POINT pt;
+    RECT rect;
+    GetWindowRect(gui->window,&rect);
+    int width = rect.right - rect.left;
+    int height = rect.bottom - rect.top;
+    pt.x = width /2;
+    pt.y = height /2;
+    ClientToScreen(gui->window, &pt);
+    SetCursorPos(pt.x,pt.y);
+    ScreenToClient(gui->window,&pt);
+    return pt; 
+}
+
+
+#define F_KEY  0x50
+
+void
+handle_user_shortcut()
+{
+    if (_keydown(VK_SHIFT))
+    {
+        if (_keydown(VK_CONTROL))
+        {
+            if (_keydown(F_KEY))
+            {
+                if(_gui.disable_client_cursor)
+                {
+                    enable_client_cursor();
+                    switch_fullscreen_mode(&_gui);
+                }
+                else
+                {
+                    disable_client_cursor();
+                    switch_fullscreen_mode(&_gui);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief 
  * window proc responsible for handling message from window HWND
  * @param hWnd 
  * @param message 
@@ -391,20 +451,41 @@ window_proc(HWND hWnd,
     } 
     else if (message == WM_INPUT)
     {
+        handle_user_shortcut();
         handle_message_window_proc(hWnd, message, wParam, lParam );
     }
-    else if (message = WM_CHAR)
+    else if (message == WM_MOUSEMOVE ||
+            message == WM_LBUTTONDOWN	||
+            message == WM_LBUTTONUP	||
+            message == WM_MBUTTONDOWN	||
+            message == WM_MBUTTONUP	||
+            message == WM_RBUTTONDOWN	||
+            message == WM_RBUTTONUP	||
+            message == WM_XBUTTONDOWN	||
+            message == WM_XBUTTONUP	)
     {
-        if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x46)) 
-        {
-            switch_fullscreen_mode(_gui.window);
-        } 
-        if (_keydown(0x11) && _keydown(0xA0) && _keydown(0x50)) 
-        {
+        gint x = LOWORD(lParam);
+		gint y = HIWORD(lParam);
 
-        } 
+        if(_gui.disable_client_cursor)
+        {
+            POINT pt = center_mouse_position(&_gui);
+            handle_window_mouse_relative(message,
+                x-pt.x,
+                y-pt.y,
+                _gui.app);
+        }
     }
+    else if (message == WM_MOUSEWHEEL)
+    {		
+		gboolean up = (GET_WHEEL_DELTA_WPARAM(wParam) > 0);
 
+        if(_gui.disable_client_cursor)
+        {
+            center_mouse_position(&_gui);
+        }
+        handle_window_wheel(up,_gui.app);
+    }
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
@@ -422,7 +503,19 @@ adjust_window(GUI* gui)
 }
 
 
+void
+disable_client_cursor()
+{
+    _gui.disable_client_cursor = TRUE;
+    ShowCursor(FALSE);
+}
 
+void
+enable_client_cursor()
+{
+    _gui.disable_client_cursor = FALSE;
+    ShowCursor(TRUE);
+}
 
 
 

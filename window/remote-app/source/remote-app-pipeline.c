@@ -23,7 +23,6 @@
 #include <gst/gst.h>
 #include <glib-2.0/glib.h>
 #include <gst/webrtc/webrtc.h>
-#include <gst/base/gstbasesink.h>
 
 
 
@@ -182,7 +181,7 @@ handle_video_stream (GstPad * pad,
     GstPadLinkReturn ret = gst_pad_link (pad, queue_pad);
     g_assert_cmphex (ret, ==, GST_PAD_LINK_OK);
 
-
+    trigger_capture_input_event(core);
     setup_video_overlay(pipeline->video_element[VIDEO_SINK],core);
 }
 
@@ -252,7 +251,7 @@ on_incoming_stream (GstElement * webrtc,
     gchar* encoding = gst_structure_get_string(gst_caps_get_structure(caps, 0), "encoding-name");
     gchar* name = gst_structure_get_name(gst_caps_get_structure(caps, 0));
 
-    g_print("handling media type %s with encoding %s",name,encoding);
+    g_print("handling media type %s with encoding %s\n",name,encoding);
 
     pipeline->video_element[VIDEO_DECODER] = gst_element_factory_make ("decodebin", NULL);
     g_signal_connect (pipeline->video_element[VIDEO_DECODER], "pad-added",
@@ -322,13 +321,14 @@ setup_pipeline(RemoteApp* core)
 
     GError* error = NULL;
 
-    pipe->pipeline = gst_pipeline_new("wecrtc client");
-    pipe->webrtcbin = gst_element_factory_make("webrtcbin","webrtcbin");
-    gst_bin_add(GST_BIN (pipe->pipeline),pipe->webrtcbin);
-    gst_element_sync_state_with_parent(pipe->webrtcbin);
-
-
+    // pipe->pipeline = gst_pipeline_new("wecrtc client");
+    // pipe->webrtcbin = gst_element_factory_make("webrtcbin","webrtcbin");
+    // gst_bin_add(GST_BIN (pipe->pipeline),pipe->webrtcbin);
+    // gst_element_sync_state_with_parent(pipe->webrtcbin);
+    pipe->pipeline = gst_parse_launch("webrtcbin name=webrtcbin  bundle-policy=max-bundle audiotestsrc is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! queue ! application/x-rtp,media=audio,payload=96,encoding-name=97 ! webrtcbin",&error);
+    pipe->webrtcbin =  gst_bin_get_by_name(GST_BIN(pipe->pipeline),"webrtcbin");
     g_object_set(pipe->webrtcbin, "latency", 0, NULL);
+
 
     /* Incoming streams will be exposed via this signal */
     g_signal_connect(pipe->webrtcbin, "pad-added",

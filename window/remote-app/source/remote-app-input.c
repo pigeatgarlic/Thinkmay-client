@@ -14,7 +14,7 @@
 #include <remote-app-gui.h>
 
 
-#include <gst/video/navigation.h>
+#include <glib.h>
 #include <gst/gst.h>
 
 #include <human-interface-opcode.h>
@@ -31,7 +31,7 @@
 
 
 
-struct _HIDHandler
+struct _InputHandler
 {
     /**
      * @brief 
@@ -44,32 +44,20 @@ struct _HIDHandler
      */
     GThread *gamepad_thread;
 
-    /**
-     * @brief 
-     * 
-     */
-    HANDLE event_handle;
-
 
     /**
      * @brief 
      * 
      */
     gboolean capturing;
-
-
-    /**
-     * @brief 
-     * 
-     */
-    GMutex lock;
 };
 
-static HIDHandler HID_handler = {0}; 
+static InputHandler HID_handler = {0}; 
 
-HIDHandler*
-init_input_capture_system(void)
+InputHandler*
+init_input_capture_system()
 {
+    HID_handler.capturing = FALSE;
     return &HID_handler;
 }
 
@@ -89,7 +77,7 @@ gpointer            gamepad_thread_func             (gpointer data);
 void
 trigger_capture_input_event(RemoteApp* app)
 {
-    HIDHandler* handler = remote_app_get_hid_handler(app);
+    InputHandler* handler = remote_app_get_hid_handler(app);
 
     handler->capturing = TRUE;
     handler->gamepad_thread = g_thread_new("gamepad thread", 
@@ -194,8 +182,19 @@ send_key_event(HidInput* input,
 {
     JsonObject* object = json_object_new();
     json_object_set_int_member(object,"Opcode",(gint)input->opcode);
-    json_object_set_string_member(object,"wVk",input->keyboard_code);
-    hid_data_channel_send(get_string_from_json_object(object),core);
+    if(input->opcode == KEYRAW)
+    {
+        json_object_set_int_member(object,"wVk",input->keyboard_string);
+
+    }
+    else if (input->opcode == KEYUP || 
+             input->opcode == KEYDOWN)
+    {
+        json_object_set_string_member(object,"wVk",input->keyboard_code);
+                
+    }
+    
+    // hid_data_channel_send(get_string_from_json_object(object),core);
 }
 
 
@@ -333,7 +332,7 @@ send_gamepad_vibration(XINPUT_VIBRATION vibration)
 
 
 static void
-handle_window_mouse(RAWMOUSE input,     
+handle_window_mouse_raw(RAWMOUSE input,     
                     HidInput* navigation)
 {
     // https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawmouse
@@ -440,18 +439,11 @@ handle_message_window_proc(HWND hwnd,
     if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, buffer, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) 
         return;
 
+
     RAWINPUT* raw_input = (RAWINPUT*) buffer;
     if (raw_input->header.dwType == RIM_TYPEKEYBOARD) 
     {
-        handle_window_keyboard(raw_input->data.keyboard,navigation);
-    }
-    else if (raw_input->header.dwType == RIM_TYPEMOUSE) 
-    {
-        handle_window_mouse(raw_input->data.mouse,navigation);
-    }
-    else if (raw_input->header.dwType == RIM_TYPEHID)
-    {
-        handle_window_hid(raw_input->data.hid,navigation);
+        handle_window_keyboard(raw_input->data.keyboard,navigation); 
     }
     
 
@@ -459,7 +451,21 @@ handle_message_window_proc(HWND hwnd,
     free(navigation);
 }
 
+void
+handle_window_mouse_relative(gint mouse_code,
+                          gint delta_X,
+                          gint delta_Y,
+                          RemoteApp* app)
+{
+    g_print("%d,%d,%d\n",delta_X,delta_Y,mouse_code);
+}
 
 
+void
+handle_window_wheel(gint isup,
+                    RemoteApp* app)
+{
+    g_print("%d\n",isup);
+}
 
 #endif

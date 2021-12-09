@@ -15,9 +15,7 @@
 #include <glib-2.0/glib.h>
 #include <development.h>
 
-#ifndef GST_USE_UNSTABLE_API
 #define GST_USE_UNSTABLE_API
-#endif
 
 static gchar connection_string[500] = {0};
 static gchar remote_token[500] = {0};
