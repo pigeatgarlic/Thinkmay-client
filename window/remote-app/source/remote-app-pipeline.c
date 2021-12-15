@@ -52,20 +52,21 @@ enum
  */
 enum
 {
-    /*audio capture source*/
-    PULSE_SINK,
-    WASAPI_SINK,
+    AUDIO_SINK,
 
     AUDIO_CONVERT,
+
+    /**
+     * @brief 
+     * 
+     */
     AUDIO_RESAMPLE,
 
     /*audio encoder*/
-    OPUS_DECODER,
-    AAC_DECODER,
+    AUDIO_DECODER,
 
     /*rtp packetize and queue*/
     AUDIO_DEPAYLOAD,
-    AUDIO_SINK,
 
     AUDIO_ELEMENT_LAST
 };
@@ -255,26 +256,34 @@ on_incoming_stream (GstElement * webrtc,
     if(!g_strcmp0("application/x-rtp",name) &&
        !g_strcmp0("OPUS",encoding))
     {
+        pipeline->audio_element[AUDIO_DECODER] = gst_element_factory_make ("decodebin", "audiodecoder");
+        g_signal_connect (pipeline->audio_element[AUDIO_DECODER], "pad-added",
+            G_CALLBACK (on_incoming_decodebin_stream), core);
+        gst_bin_add (GST_BIN (pipeline->pipeline), pipeline->audio_element[AUDIO_DECODER]);
 
+        gst_element_sync_state_with_parent (pipeline->audio_element[AUDIO_DECODER]);
+
+        GstCaps* cap = gst_element_get_static_pad (pipeline->audio_element[AUDIO_DECODER], "sink");
+        gst_pad_link (webrtcbin_pad, cap);
+        gst_object_unref (cap);
     }
 
     if(!g_strcmp0("application/x-rtp",name) &&
        !g_strcmp0("H265",encoding))
     {
 
+        pipeline->video_element[VIDEO_DECODER] = gst_element_factory_make ("decodebin", "videodecoder");
+
+        g_signal_connect (pipeline->video_element[VIDEO_DECODER], "pad-added",
+            G_CALLBACK (on_incoming_decodebin_stream), core);
+        gst_bin_add (GST_BIN (pipeline->pipeline), pipeline->video_element[VIDEO_DECODER]);
+
+        gst_element_sync_state_with_parent (pipeline->video_element[VIDEO_DECODER]);
+
+        GstCaps* cap = gst_element_get_static_pad (pipeline->video_element[VIDEO_DECODER], "sink");
+        gst_pad_link (webrtcbin_pad, cap);
+        gst_object_unref (cap);
     }
-
-
-    pipeline->video_element[VIDEO_DECODER] = gst_element_factory_make ("decodebin", NULL);
-    g_signal_connect (pipeline->video_element[VIDEO_DECODER], "pad-added",
-        G_CALLBACK (on_incoming_decodebin_stream), core);
-    gst_bin_add (GST_BIN (pipeline->pipeline), pipeline->video_element[VIDEO_DECODER]);
-
-    gst_element_sync_state_with_parent (pipeline->video_element[VIDEO_DECODER]);
-
-    pipeline->video_caps[VIDEO_DECODER] = gst_element_get_static_pad (pipeline->video_element[VIDEO_DECODER], "sink");
-    gst_pad_link (webrtcbin_pad, pipeline->video_caps[VIDEO_DECODER]);
-    gst_object_unref (pipeline->video_caps[VIDEO_DECODER]);
 }
 
 
