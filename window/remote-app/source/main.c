@@ -83,6 +83,7 @@ main(int argc, char* argv[])
         return -1;
     }
 
+
     if(!DEVELOPMENT_ENVIRONMENT)
     {
         if(argc == 2)
@@ -95,19 +96,11 @@ main(int argc, char* argv[])
                 return;
             }
 
-            gchar** array_param = split(array[2],'.');
-            do
+            gchar** parameter = split(array[2],'=');
+            if(!g_strcmp0(*(parameter ),"token"))
             {
-                if(*(array_param))
-                {
-                    gchar** parameter = split(*(array_param),'=');
-                    if(!g_strcmp0(*(parameter ),"token"))
-                    {
-                        memcpy(remote_token,*(parameter +1),strlen(*(parameter +1)));
-                    }
-                }
+                memcpy(remote_token,parameter[1],strlen(parameter[1]));
             }
-            while(*(array_param++));
         }
     }
     else

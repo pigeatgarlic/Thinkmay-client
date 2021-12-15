@@ -245,7 +245,6 @@ on_incoming_stream (GstElement * webrtc,
       return;
 
     Pipeline* pipeline = remote_app_get_pipeline(core);
-    GstElement* pipe = pipeline->pipeline;
     
     GstCaps* caps = gst_pad_get_current_caps(webrtcbin_pad);
     gchar* encoding = gst_structure_get_string(gst_caps_get_structure(caps, 0), "encoding-name");
@@ -253,10 +252,23 @@ on_incoming_stream (GstElement * webrtc,
 
     g_print("handling media type %s with encoding %s\n",name,encoding);
 
+    if(!g_strcmp0("application/x-rtp",name) &&
+       !g_strcmp0("OPUS",encoding))
+    {
+
+    }
+
+    if(!g_strcmp0("application/x-rtp",name) &&
+       !g_strcmp0("H265",encoding))
+    {
+
+    }
+
+
     pipeline->video_element[VIDEO_DECODER] = gst_element_factory_make ("decodebin", NULL);
     g_signal_connect (pipeline->video_element[VIDEO_DECODER], "pad-added",
         G_CALLBACK (on_incoming_decodebin_stream), core);
-    gst_bin_add (GST_BIN (pipe), pipeline->video_element[VIDEO_DECODER]);
+    gst_bin_add (GST_BIN (pipeline->pipeline), pipeline->video_element[VIDEO_DECODER]);
 
     gst_element_sync_state_with_parent (pipeline->video_element[VIDEO_DECODER]);
 
@@ -321,10 +333,6 @@ setup_pipeline(RemoteApp* core)
 
     GError* error = NULL;
 
-    // pipe->pipeline = gst_pipeline_new("wecrtc client");
-    // pipe->webrtcbin = gst_element_factory_make("webrtcbin","webrtcbin");
-    // gst_bin_add(GST_BIN (pipe->pipeline),pipe->webrtcbin);
-    // gst_element_sync_state_with_parent(pipe->webrtcbin);
     pipe->pipeline = gst_parse_launch("webrtcbin name=webrtcbin  bundle-policy=max-bundle audiotestsrc is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay ! queue ! application/x-rtp,media=audio,payload=96,encoding-name=97 ! webrtcbin",&error);
     pipe->webrtcbin =  gst_bin_get_by_name(GST_BIN(pipe->pipeline),"webrtcbin");
     g_object_set(pipe->webrtcbin, "latency", 0, NULL);

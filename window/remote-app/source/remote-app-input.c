@@ -436,6 +436,7 @@ handle_window_mouse_relative(gint mouse_code,
     memset(navigation,0,sizeof(HidInput));
     navigation->opcode = MOUSERAW;
     navigation->relative = TRUE;
+    navigation->mouse_code = mouse_code;
     navigation->delta_x = delta_X;
     navigation->delta_y = delta_Y;
     parse_hid_event(navigation,HID_handler.app);
@@ -450,7 +451,7 @@ handle_window_wheel(gint isup,
     HidInput* navigation = malloc(sizeof(HidInput));
     memset(navigation,0,sizeof(HidInput));
     navigation->opcode = MOUSE_WHEEL;
-    navigation->wheel_dY = 120 * isup;
+    navigation->wheel_dY = isup? 120 : -120;
     parse_hid_event(navigation,HID_handler.app);
     free(navigation);
 }

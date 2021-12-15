@@ -104,7 +104,7 @@ signalling_hub_setup(SignallingHub* hub,
                      JsonArray* stun_array,
                      gchar* remote_token)
 {
-    if(!g_strcmp0(turn,"turn://:@turn::3478"))
+    if(!g_strcmp0(turn,"turn://:@turn::3478") || !turn)
     {
 		g_printerr("Fail to get turn server, setting default value");
         turn = DEFAULT_TURN;

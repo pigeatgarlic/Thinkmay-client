@@ -127,6 +127,7 @@ remote_app_setup_session(RemoteApp* self,
 		else 
 		{
 			GError* error = malloc(sizeof(GError));
+			g_printerr("response code: %d\n",infor_message->status_code);
 			error->message = "fail to get session information";
 			remote_app_finalize(self,0,error);
 			return;
@@ -152,6 +153,7 @@ remote_app_setup_session(RemoteApp* self,
 RemoteApp*
 remote_app_initialize(gchar* remote_token)
 {
+	g_print("Starting remote app with remote token %s\n",remote_token);
 	RemoteApp* app= 		malloc(sizeof(RemoteApp));
 	app->loop =				g_main_loop_new(NULL, FALSE);
 	app->handler =			init_input_capture_system(app);
