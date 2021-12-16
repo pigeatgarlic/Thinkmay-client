@@ -33,15 +33,33 @@
  */
 enum
 {
-    /*screen capture source*/
+    /**
+     * @brief 
+     * 
+     */
     VIDEO_SINK,
+    VIDEO_QUEUE_SINK,
 
+    /**
+     * @brief 
+     * 
+     */
     VIDEO_CONVERT,
-    /*video encoder*/
-    VIDEO_DECODER,
+    VIDEO_QUEUE_CONVERT,
 
-    /*payload packetize*/
+    /**
+     * @brief 
+     * 
+     */
+    VIDEO_DECODER,
+    VIDEO_QUEUE_DECODER,
+
+    /**
+     * @brief 
+     * 
+     */
     VIDEO_DEPAYLOAD,
+    VIDEO_QUEUE_DEPAYLOAD,
 
     VIDEO_ELEMENT_LAST
 };
@@ -53,20 +71,36 @@ enum
 enum
 {
     AUDIO_SINK,
-
-    AUDIO_CONVERT,
+    AUDIO_QUEUE_SINK,
 
     /**
      * @brief 
      * 
      */
     AUDIO_RESAMPLE,
+    AUDIO_QUEUE_RESAMPLE,
 
-    /*audio encoder*/
+    /**
+     * @brief 
+     * 
+     */
+    AUDIO_CONVERT,
+    AUDIO_QUEUE_CONVERT,
+
+
+    /**
+     * @brief 
+     * 
+     */
     AUDIO_DECODER,
+    AUDIO_QUEUE_DECODER,
 
-    /*rtp packetize and queue*/
+    /**
+     * @brief 
+     * 
+     */
     AUDIO_DEPAYLOAD,
+    AUDIO_QUEUE_DEPAYLOAD,
 
     AUDIO_ELEMENT_LAST
 };
@@ -124,31 +158,31 @@ handle_audio_stream (GstPad * pad,
 {
     Pipeline* pipeline = remote_app_get_pipeline(core);
 
-    GstElement* queue =                      gst_element_factory_make ("queue", NULL);
     pipeline->audio_element[AUDIO_CONVERT] = gst_element_factory_make ("audioconvert", NULL);
     pipeline->audio_element[AUDIO_RESAMPLE]= gst_element_factory_make ("audioresample", NULL);
     pipeline->audio_element[AUDIO_SINK] =    gst_element_factory_make ("autoaudiosink", NULL);
 
     /* Might also need to resample, so add it just in case.
     * Will be a no-op if it's not required. */
-    gst_bin_add_many (GST_BIN (pipeline->pipeline), queue, 
+    gst_bin_add_many (GST_BIN (pipeline->pipeline), 
         pipeline->audio_element[AUDIO_CONVERT], 
         pipeline->audio_element[AUDIO_RESAMPLE], 
         pipeline->audio_element[AUDIO_SINK], NULL);
 
-    gst_element_sync_state_with_parent (queue);
     gst_element_sync_state_with_parent (pipeline->audio_element[AUDIO_CONVERT]);
     gst_element_sync_state_with_parent (pipeline->audio_element[AUDIO_RESAMPLE]);
     gst_element_sync_state_with_parent (pipeline->audio_element[AUDIO_SINK]);
 
-    gst_element_link_many (queue, 
+    gst_element_link_many ( 
+        pipeline->audio_element[AUDIO_QUEUE_CONVERT], 
         pipeline->audio_element[AUDIO_CONVERT], 
+        pipeline->audio_element[AUDIO_QUEUE_RESAMPLE],
         pipeline->audio_element[AUDIO_RESAMPLE],
+        pipeline->audio_element[AUDIO_QUEUE_SINK],
         pipeline->audio_element[AUDIO_SINK], NULL);
 
-    GstPad* queue_pad = gst_element_get_static_pad (queue, "sink");
+    GstPad* queue_pad = gst_element_get_static_pad (pipeline->audio_element[AUDIO_QUEUE_CONVERT], "sink");
     GstPadLinkReturn ret = gst_pad_link (pad, queue_pad);
-
     g_assert_cmphex (ret, ==, GST_PAD_LINK_OK);
 }
 
@@ -158,27 +192,27 @@ handle_video_stream (GstPad * pad,
 {
     Pipeline* pipeline = remote_app_get_pipeline(core);
 
-    GstElement* queue = gst_element_factory_make ("queue", NULL);
     pipeline->video_element[VIDEO_CONVERT] = gst_element_factory_make ("videoconvert", NULL);
     pipeline->video_element[VIDEO_SINK] = gst_element_factory_make (DEFAULT_VIDEO_SINK, NULL);
 
-    gst_bin_add_many (GST_BIN (pipeline->pipeline), queue, 
+    gst_bin_add_many (GST_BIN (pipeline->pipeline),
         pipeline->video_element[VIDEO_CONVERT], 
         pipeline->video_element[VIDEO_SINK], NULL);
 
-    gst_element_sync_state_with_parent (queue);
     gst_element_sync_state_with_parent (pipeline->video_element[VIDEO_CONVERT]);
     gst_element_sync_state_with_parent (pipeline->video_element[VIDEO_SINK]);
 
-    gst_element_link_many (queue, 
+    gst_element_link_many ( 
+        pipeline->video_element[VIDEO_QUEUE_CONVERT], 
         pipeline->video_element[VIDEO_CONVERT], 
+        pipeline->video_element[VIDEO_QUEUE_SINK], 
         pipeline->video_element[VIDEO_SINK], NULL);
 
 #ifndef G_OS_WIN32
     setup_video_sink_navigator(core);
 #endif
     
-    GstPad* queue_pad = gst_element_get_static_pad (queue, "sink");
+    GstPad* queue_pad = gst_element_get_static_pad (pipeline->video_element[VIDEO_QUEUE_CONVERT], "sink");
     GstPadLinkReturn ret = gst_pad_link (pad, queue_pad);
     g_assert_cmphex (ret, ==, GST_PAD_LINK_OK);
 
@@ -329,7 +363,33 @@ setup_video_sink_navigator(RemoteApp* core)
 #endif
 
  
+static void
+setup_pipeline_queue(Pipeline* pipeline)
+{
+    GstElement* queue_array[9];
+    for (gint i = 0; i < 10; i++)
+    {
+        queue_array[i] = gst_element_factory_make ("queue", NULL);
+        g_object_set(queue_array[i], "max-size-time", 0, NULL);
+        g_object_set(queue_array[i], "max-size-bytes", 0, NULL);
+        g_object_set(queue_array[i], "max-size-buffers", 3, NULL);
 
+        gst_bin_add(GST_BIN(pipeline->pipeline),queue_array[i]);
+        gst_element_sync_state_with_parent(queue_array[i]);
+
+    }
+
+    pipeline->audio_element[AUDIO_QUEUE_SINK] =             queue_array[0];
+    pipeline->audio_element[AUDIO_QUEUE_RESAMPLE] =         queue_array[1];
+    pipeline->audio_element[AUDIO_QUEUE_CONVERT] =          queue_array[2];
+    pipeline->audio_element[AUDIO_QUEUE_DECODER] =          queue_array[3];
+    pipeline->audio_element[AUDIO_QUEUE_DEPAYLOAD] =        queue_array[4];
+
+    pipeline->video_element[VIDEO_QUEUE_SINK] =             queue_array[5];
+    pipeline->video_element[VIDEO_QUEUE_CONVERT] =          queue_array[6];
+    pipeline->video_element[VIDEO_QUEUE_DECODER] =          queue_array[7];
+    pipeline->video_element[VIDEO_QUEUE_DEPAYLOAD] =        queue_array[8];
+}
 
 
 gpointer
@@ -346,6 +406,7 @@ setup_pipeline(RemoteApp* core)
     pipe->webrtcbin =  gst_bin_get_by_name(GST_BIN(pipe->pipeline),"webrtcbin");
     g_object_set(pipe->webrtcbin, "latency", 0, NULL);
 
+    setup_pipeline_queue(pipe);
 
     /* Incoming streams will be exposed via this signal */
     g_signal_connect(pipe->webrtcbin, "pad-added",
