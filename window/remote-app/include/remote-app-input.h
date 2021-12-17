@@ -54,15 +54,43 @@ InputHandler*       init_input_capture_system       (RemoteApp* app);
 /**
  * @brief 
  * 
+ * @param app 
+ */
+void                reset_key                       (RemoteApp* app);
+
+/**
+ * @brief 
+ * 
+ * @param app 
+ */
+void                reset_mouse                     (RemoteApp* app);
+
+
+
+
+
+
+
+/**
+ * @brief 
+ * 
  * @param mouse_code 
  * @param delta_X 
  * @param delta_Y 
  * @param app 
  */
-void                handle_window_mouse_relative       (gint mouse_code,
+void                handle_window_mouse_relative    (gint mouse_code,
                                                     gint delta_X,
                                                     gint delta_Y,
                                                     RemoteApp* app);
+
+
+/**
+ * @brief 
+ * enable or disable key capture 
+ */
+void                toggle_key_capturing            (RemoteApp* app, 
+                                                    gboolean is_true);
 #else
 
 /**

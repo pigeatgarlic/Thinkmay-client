@@ -418,12 +418,21 @@ handle_user_shortcut()
                 if(_gui.disable_client_cursor)
                 {
                     enable_client_cursor();
+                    toggle_key_capturing(_gui.app,TRUE);
                     switch_fullscreen_mode(&_gui);
                 }
                 else
                 {
                     disable_client_cursor();
                     switch_fullscreen_mode(&_gui);
+                    toggle_key_capturing(_gui.app,FALSE);
+
+                    /**
+                     * @brief 
+                     * reset mouse and keyboard to prevent key stuck
+                     */
+                    reset_key(_gui.app);
+                    reset_mouse(_gui.app);
                 }
             }
         }

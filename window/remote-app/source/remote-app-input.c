@@ -80,7 +80,6 @@ trigger_capture_input_event(RemoteApp* app)
 {
     InputHandler* handler = remote_app_get_hid_handler(app);
 
-    handler->capturing = TRUE;
     handler->gamepad_thread = g_thread_new("gamepad thread", 
         (GThreadFunc)gamepad_thread_func, app);
 }
@@ -171,6 +170,84 @@ send_key_event(HidInput* input,
 }
 
 
+static gint reset_key_array[10] = 
+{
+    VK_SHIFT,
+    VK_CONTROL,
+    VK_LWIN,
+    VK_RWIN,
+    VK_ESCAPE,
+    VK_MENU,
+    0,
+};
+
+/**
+ * @brief 
+ * detect if a key is pressed
+ * @param key 
+ * @return gboolean 
+ */
+static gboolean
+_keydown(int *key)
+{
+    return (GetAsyncKeyState(key) & 0x8000) != 0;
+}
+
+
+void
+reset_key(RemoteApp* app)
+{
+    gint i = 0;
+    while (!reset_key_array[i])
+    {
+        
+        if(_keydown(reset_key_array[i]))
+        {
+            HidInput input = {0};
+            input.opcode = KEYRAW;
+            input.key_is_up = TRUE;
+            input.keyboard_code = reset_key_array[i]; 
+            send_key_event(&input,app);
+        }
+        i++;
+    }
+}
+
+
+
+
+static gint reset_mouse_array[10] = 
+{
+    WM_LBUTTONUP,
+    WM_RBUTTONUP,
+    WM_MBUTTONUP,
+    0
+};
+
+static gint reset_mouse_virtual_code[10] = 
+{
+    VK_LBUTTON,
+    VK_RBUTTON,
+    VK_MBUTTON,
+    0
+};
+
+void
+reset_mouse(RemoteApp* app)
+{
+    gint i = 0;
+    while (!reset_mouse_array[i])
+    {
+        if(_keydown(reset_mouse_virtual_code[i]))
+        {
+            HidInput input = {0};
+            input.opcode = MOUSERAW;
+            input.mouse_code = reset_mouse_array[i];
+            send_mouse_signal(&input,app);
+        }
+        i++;
+    }
+}
 
 
 
@@ -181,10 +258,12 @@ send_key_event(HidInput* input,
 
 
 
-
-
-
-
+void
+toggle_key_capturing(RemoteApp* app, gboolean is_true)
+{
+    InputHandler* handler = remote_app_get_hid_handler(app);
+    handler->capturing = is_true;
+}
 
 
 
@@ -303,71 +382,6 @@ send_gamepad_vibration(XINPUT_VIBRATION vibration)
 }
 
 
-
-static void
-handle_window_mouse_raw(RAWMOUSE input,     
-                    HidInput* navigation)
-{
-    // https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawmouse
-    // wheel handling 
-
-    if ((input.usButtonFlags & RI_MOUSE_WHEEL) == RI_MOUSE_WHEEL ||
-        (input.usButtonFlags & RI_MOUSE_HWHEEL) == RI_MOUSE_HWHEEL)
-    {
-        static const unsigned long defaultScrollLinesPerWheelDelta = 3;
-        static const unsigned long defaultScrollCharsPerWheelDelta = 1;
-
-        gint wheelDelta = (float)(short)input.usButtonData;
-        gint numTicks = wheelDelta / WHEEL_DELTA;
-
-        gboolean isHorizontalScroll = (input.usButtonFlags & RI_MOUSE_HWHEEL) == RI_MOUSE_HWHEEL;
-        gboolean isScrollByPage = FALSE;
-        float scrollDelta = numTicks;
-
-        if (isHorizontalScroll)
-        {
-            unsigned long scrollChars = defaultScrollCharsPerWheelDelta;
-            SystemParametersInfo(SPI_GETWHEELSCROLLCHARS, 0, &scrollChars, 0);
-            scrollDelta *= scrollChars;
-        }
-        else
-        {
-            unsigned long scrollLines = defaultScrollLinesPerWheelDelta;
-            SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &scrollLines, 0);
-            if (scrollLines == WHEEL_PAGESCROLL)
-                isScrollByPage = TRUE;
-            else
-                scrollDelta *= scrollLines;
-        }
-
-
-        navigation->opcode = MOUSE_WHEEL;
-        navigation->wheel_dY = scrollDelta;
-        return;
-    }
-
-    navigation->opcode = MOUSERAW;
-    navigation->mouse_code = input.usButtonFlags;
-
-    // mouse handling
-    if ((input.usFlags & MOUSE_MOVE_ABSOLUTE) == MOUSE_MOVE_ABSOLUTE)
-    {
-        gboolean isVirtualDesktop = (input.usFlags & MOUSE_VIRTUAL_DESKTOP) == MOUSE_VIRTUAL_DESKTOP;
-
-        gint width = GetSystemMetrics(isVirtualDesktop ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
-        gint height = GetSystemMetrics(isVirtualDesktop ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
-
-        navigation->x_pos = ((input.lLastX / 65535.0f) * width);
-        navigation->y_pos = ((input.lLastY / 65535.0f) * height);
-        navigation->relative = FALSE;
-    }
-    else if (input.lLastX != 0 || input.lLastY != 0)
-    {
-        navigation->delta_x = input.lLastX;
-        navigation->delta_y = input.lLastY;
-        navigation->relative = TRUE;
-    }
-}
 
 static void
 handle_window_keyboard(RAWKEYBOARD input,
